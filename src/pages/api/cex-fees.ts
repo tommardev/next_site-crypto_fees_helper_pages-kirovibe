@@ -1,6 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { fetchExchanges } from '@/lib/api/coingecko';
-import { normalizeCEXDataWithFees } from '@/lib/utils/normalize';
+import { fetchExchangesWithDetails } from '@/lib/api/coinmarketcap';
+import { normalizeCMCData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
 import { CACHE_DURATION } from '@/config/constants';
 
@@ -25,11 +25,21 @@ export default async function handler(
       });
     }
 
-    // Fetch fresh data from CoinGecko
-    const rawData = await fetchExchanges(100);
+    // Check if API key is configured
+    if (!process.env.COINMARKETCAP_API_KEY) {
+      return res.status(500).json({
+        error: 'API key not configured',
+        message: 'COINMARKETCAP_API_KEY environment variable is required. Get your free API key at https://pro.coinmarketcap.com/signup',
+      });
+    }
+
+    // Fetch fresh data from CoinMarketCap with REAL fees
+    const rawData = await fetchExchangesWithDetails(100);
     
     // Normalize data
-    const normalizedData = rawData.map(normalizeCEXDataWithFees);
+    const normalizedData = rawData
+      .filter(ex => ex.maker_fee !== undefined && ex.taker_fee !== undefined)
+      .map(normalizeCMCData);
 
     // Update cache
     cache = {

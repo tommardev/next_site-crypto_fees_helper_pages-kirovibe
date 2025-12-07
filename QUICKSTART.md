@@ -7,20 +7,32 @@ Get your CryptoFees application running in 3 simple steps!
 - Node.js 18+ installed
 - npm or yarn package manager
 
-## Step 1: Install Dependencies
+## Step 1: Get CoinMarketCap API Key (FREE)
+
+1. Go to https://pro.coinmarketcap.com/signup
+2. Sign up for a free account (Basic plan)
+3. Verify your email
+4. Go to API Keys section in dashboard
+5. Copy your API key
+
+**Why needed?** CoinMarketCap provides REAL maker/taker fee data for exchanges.
+
+## Step 2: Install Dependencies & Configure
 
 ```bash
+# Install packages
 npm install
+
+# Create environment file
+cp .env.local.example .env.local
 ```
 
-This will install all required packages including:
-- Next.js (React framework)
-- Chakra UI (component library)
-- SWR (data fetching)
-- TypeScript
-- Framer Motion (animations)
+Edit `.env.local` and add your API key:
+```env
+COINMARKETCAP_API_KEY=paste_your_api_key_here
+```
 
-## Step 2: Start Development Server
+## Step 3: Start Development Server
 
 ```bash
 npm run dev

@@ -91,9 +91,10 @@ All requirements have been successfully implemented following the steering guide
 ## 📊 Data Sources
 
 ### CEX Data
-- **Primary**: CoinGecko API `/exchanges` endpoint
-- **Features**: Trust scores, volume, country, year established
-- **Known Fees**: Hardcoded for top exchanges (Binance, Coinbase, Kraken, etc.)
+- **Primary**: CoinMarketCap API `/v1/exchange/info` endpoint
+- **Features**: REAL maker/taker fees, volume, country, year established
+- **Requires**: Free API key from https://pro.coinmarketcap.com/signup
+- **Supplementary**: CoinGecko API for trust scores and additional metadata
 
 ### DEX Data
 - **Current**: Curated list with real protocols

@@ -4,41 +4,72 @@ inclusion: always
 
 # API Integration Guidelines
 
-## Free API Data Sources (Priority Order)
+## API Data Sources (Priority Order)
 
-### 1. CoinGecko API (Free Tier - NO API KEY REQUIRED)
-**Endpoint**: `https://api.coingecko.com/api/v3`
+### 1. CoinMarketCap API (PRIMARY - API KEY REQUIRED) ⭐
+**Endpoint**: `https://pro-api.coinmarketcap.com`
 
-**Rate Limits**: 10-50 calls/minute (free tier)
+**Rate Limits**: 
+- Basic (Free): 333 calls/day, 10,000 calls/month
+- Hobbyist: $29/month - 10,000 calls/day
+- Startup: $79/month - 30,000 calls/day
+
+**Why CoinMarketCap**: Provides REAL fee data (maker/taker fees) unlike CoinGecko
 
 **Useful Endpoints**:
 ```typescript
-// Get list of exchanges with volume and trust score
-GET /exchanges
-// Returns: id, name, year_established, country, trust_score, trade_volume_24h_btc
+// Get exchange ID map (for top exchanges)
+GET /v1/exchange/map?start=1&limit=100&sort=volume_24h
+// Returns: id, name, slug, is_active
 
-// Get specific exchange details including fees
-GET /exchanges/{id}
-// Returns: taker_fee, maker_fee, spot_trade_volume, etc.
-
-// Get exchange tickers
-GET /exchanges/{id}/tickers
+// Get exchange details with REAL FEES
+GET /v1/exchange/info?id=270,294,311
+// Returns: maker_fee, taker_fee, spot_volume_usd, etc.
 ```
 
 **Implementation Example**:
 ```typescript
-// lib/api/coingecko.ts
-const BASE_URL = 'https://api.coingecko.com/api/v3';
+// lib/api/coinmarketcap.ts
+const BASE_URL = 'https://pro-api.coinmarketcap.com';
+const API_KEY = process.env.COINMARKETCAP_API_KEY;
 
-export async function fetchExchanges() {
-  const response = await fetch(`${BASE_URL}/exchanges?per_page=100`);
+export async function fetchTopExchanges(limit = 100) {
+  const response = await fetch(
+    `${BASE_URL}/v1/exchange/map?start=1&limit=${limit}&sort=volume_24h`,
+    {
+      headers: {
+        'X-CMC_PRO_API_KEY': API_KEY,
+      },
+    }
+  );
   return response.json();
 }
 
-export async function fetchExchangeDetails(exchangeId: string) {
-  const response = await fetch(`${BASE_URL}/exchanges/${exchangeId}`);
+export async function fetchExchangeInfo(ids: number[]) {
+  const response = await fetch(
+    `${BASE_URL}/v1/exchange/info?id=${ids.join(',')}`,
+    {
+      headers: {
+        'X-CMC_PRO_API_KEY': API_KEY,
+      },
+    }
+  );
   return response.json();
 }
+```
+
+### 2. CoinGecko API (SUPPLEMENTARY - NO API KEY REQUIRED)
+**Endpoint**: `https://api.coingecko.com/api/v3`
+
+**Rate Limits**: 10-50 calls/minute (free tier)
+
+**Use For**: Trust scores, additional metadata, backup data
+
+**Useful Endpoints**:
+```typescript
+// Get list of exchanges with trust scores
+GET /exchanges
+// Returns: id, name, trust_score, trade_volume_24h_btc
 ```
 
 ### 2. Binance Public API (NO API KEY REQUIRED)
@@ -349,19 +380,51 @@ export function normalizeCEXData(rawData: any): CEXFees {
 
 ### Required Environment Variables
 ```bash
-# .env.local (optional - most APIs don't require keys for basic data)
+# .env.local
 
-# Optional: For higher rate limits
+# REQUIRED: CoinMarketCap API Key for real fee data
+COINMARKETCAP_API_KEY=your_api_key_here
+
+# Get your free API key at: https://pro.coinmarketcap.com/signup
+
+# Optional: For higher rate limits on CoinGecko
 NEXT_PUBLIC_COINGECKO_API_KEY=your_key_here
-
-# Optional: For user-specific Binance data
-BINANCE_API_KEY=your_key_here
-BINANCE_SECRET_KEY=your_secret_here
 
 # Optional: For persistent caching
 REDIS_URL=your_redis_url
 VERCEL_KV_URL=your_vercel_kv_url
 ```
+
+### Getting CoinMarketCap API Key
+
+1. Go to https://pro.coinmarketcap.com/signup
+2. Sign up for a free account (Basic Plan)
+3. Verify your email
+4. Go to API Keys section
+5. Copy your API key
+6. Add to `.env.local` file
+
+**Free Tier Limits**:
+- 333 calls per day
+- 10,000 calls per month
+- Perfect for this use case with 24-hour caching
+
+### Netlify Environment Variables
+
+To add the API key to Netlify:
+
+1. Go to your Netlify dashboard
+2. Select your site
+3. Go to **Site settings** → **Environment variables**
+4. Click **Add a variable**
+5. Add:
+   - **Key**: `COINMARKETCAP_API_KEY`
+   - **Value**: Your API key
+   - **Scopes**: Select all (Production, Deploy Previews, Branch deploys)
+6. Click **Save**
+7. Redeploy your site for changes to take effect
+
+**Important**: Never commit API keys to Git. Always use environment variables.
 
 ## Testing API Integration
 
