@@ -1,37 +1,158 @@
-# Example app with [chakra-ui](https://github.com/chakra-ui/chakra-ui) and TypeScript
+# CryptoFees - Cryptocurrency Exchange Fee Comparison
 
-This example features how to use [chakra-ui](https://github.com/chakra-ui/chakra-ui) as the component library within a Next.js app with TypeScript.
+Compare trading fees across centralized (CEX) and decentralized (DEX) cryptocurrency exchanges. Built with Next.js, TypeScript, and Chakra UI.
 
-Next.js and chakra-ui have built-in TypeScript declarations, so we'll get autocompletion for their modules straight away.
+## Features
 
-We are connecting the Next.js `_app.js` with `chakra-ui`'s Provider and theme so the pages can have app-wide dark/light mode. We are also creating some components which shows the usage of `chakra-ui`'s style props.
+- 🔄 **Real-time Data** - Fetches live exchange data from CoinGecko API
+- 💰 **CEX & DEX Support** - Compare both centralized and decentralized exchanges
+- 🎨 **Modern UI** - Beautiful, responsive design with dark mode support
+- ⚡ **Fast Performance** - 24-hour caching for optimal speed
+- 🔍 **Advanced Filtering** - Search, sort, and filter exchanges
+- 📱 **Mobile Friendly** - Fully responsive design
+- ♿ **Accessible** - WCAG 2.1 AA compliant
 
-## Deploy your own
+## Tech Stack
 
-[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new/clone?repository-url=https://github.com/vercel/next.js/tree/canary/examples/with-chakra-ui&project-name=with-chakra-ui&repository-name=with-chakra-ui)
+- **Framework**: Next.js 14+ with TypeScript
+- **UI Library**: Chakra UI v2
+- **Data Fetching**: SWR for client-side caching
+- **Animations**: Framer Motion
+- **API**: CoinGecko (free tier, no API key required)
 
-## How to use
+## Getting Started
 
-### Using `create-next-app`
+### Prerequisites
 
-Execute [`create-next-app`](https://github.com/vercel/next.js/tree/canary/packages/create-next-app) with [npm](https://docs.npmjs.com/cli/init), [Yarn](https://yarnpkg.com/lang/en/docs/cli/create/), or [pnpm](https://pnpm.io) to bootstrap the example:
+- Node.js 18+ 
+- npm or yarn
 
+### Installation
+
+1. Clone the repository:
 ```bash
-npx create-next-app --example with-chakra-ui with-chakra-ui-app
+git clone https://github.com/yourusername/cryptofees.git
+cd cryptofees
 ```
 
+2. Install dependencies:
 ```bash
-yarn create next-app --example with-chakra-ui with-chakra-ui-app
+npm install
 ```
 
+3. Create environment file (optional):
 ```bash
-pnpm create next-app --example with-chakra-ui with-chakra-ui-app
+cp .env.local.example .env.local
 ```
 
-Deploy it to the cloud with [Vercel](https://vercel.com/new?utm_source=github&utm_medium=readme&utm_campaign=next-example) ([Documentation](https://nextjs.org/docs/deployment)).
+4. Run the development server:
+```bash
+npm run dev
+```
 
-## Notes
+5. Open [http://localhost:3000](http://localhost:3000) in your browser
 
-Chakra has supported Gradients and RTL in `v1.1`. To utilize RTL, [add RTL direction and swap](https://chakra-ui.com/docs/features/rtl-support).
+## Project Structure
 
-If you don't have multi-direction app, you should make `<Html lang="ar" dir="rtl">` inside `_document.ts`.
+```
+src/
+├── components/
+│   ├── common/          # Reusable components
+│   ├── exchange/        # Exchange-specific components
+│   └── layout/          # Layout components
+├── config/              # Configuration files
+├── lib/
+│   ├── api/            # API client functions
+│   ├── hooks/          # Custom React hooks
+│   ├── types/          # TypeScript types
+│   └── utils/          # Utility functions
+├── pages/
+│   ├── api/            # API routes
+│   ├── index.tsx       # CEX fees page
+│   ├── dex.tsx         # DEX fees page
+│   ├── about.tsx       # About page
+│   └── contact.tsx     # Contact page
+└── theme.tsx           # Chakra UI theme
+```
+
+## API Routes
+
+- `GET /api/cex-fees` - Fetch centralized exchange fees
+- `GET /api/dex-fees` - Fetch decentralized exchange fees
+
+Both routes implement 24-hour caching to minimize API calls and improve performance.
+
+## Data Sources
+
+- **CoinGecko API** - CEX exchange data (free tier)
+- **Public Exchange APIs** - Binance, Kraken, Coinbase
+- **The Graph Protocol** - DEX data (Uniswap, PancakeSwap, etc.)
+
+## Deployment
+
+### Vercel (Recommended)
+
+[![Deploy with Vercel](https://vercel.com/button)](https://vercel.com/new)
+
+1. Push your code to GitHub
+2. Import your repository in Vercel
+3. Deploy!
+
+### Netlify
+
+```bash
+npm run build
+# Deploy the 'out' directory
+```
+
+### Static Export
+
+For static hosting, update `next.config.js`:
+
+```javascript
+module.exports = {
+  output: 'export',
+  images: {
+    unoptimized: true,
+  },
+  trailingSlash: true,
+};
+```
+
+Then build:
+```bash
+npm run build
+```
+
+## Scripts
+
+- `npm run dev` - Start development server
+- `npm run build` - Build for production
+- `npm start` - Start production server
+- `npm run lint` - Run ESLint
+- `npm run type-check` - Run TypeScript type checking
+
+## Environment Variables
+
+Optional environment variables (see `.env.local.example`):
+
+- `NEXT_PUBLIC_SITE_URL` - Your site URL
+- `NEXT_PUBLIC_COINGECKO_API_KEY` - CoinGecko API key for higher rate limits
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+MIT License - feel free to use this project for personal or commercial purposes.
+
+## Acknowledgments
+
+- Data provided by [CoinGecko](https://www.coingecko.com)
+- UI components by [Chakra UI](https://chakra-ui.com)
+- Built with [Next.js](https://nextjs.org)
+
+## Support
+
+For issues, questions, or suggestions, please open an issue on GitHub or contact us at contact@cryptofees.com.
