@@ -48,9 +48,10 @@ Vercel is the easiest option as it's made by the Next.js team.
    - Import your GitHub repository
    - Vercel auto-detects Next.js settings
 
-3. **Configure Environment Variables** (Optional)
-   - Add `NEXT_PUBLIC_COINGECKO_API_KEY` if you have one
+3. **Configure Environment Variables** (REQUIRED)
+   - Add `COINMARKETCAP_API_KEY` (REQUIRED) - Your CoinMarketCap API key
    - Add `NEXT_PUBLIC_SITE_URL` with your production URL
+   - Optional: Add `NEXT_PUBLIC_COINGECKO_API_KEY` for supplementary data
 
 4. **Deploy**
    - Click "Deploy"
@@ -69,25 +70,42 @@ Vercel is the easiest option as it's made by the Next.js team.
 
 #### Steps:
 
-1. **Build the Project**
+1. **Push to GitHub** (if not already done)
    ```bash
-   npm run build
+   git init
+   git add .
+   git commit -m "Initial commit"
+   git push
    ```
 
 2. **Deploy to Netlify**
    - Go to [netlify.com](https://netlify.com)
-   - Drag and drop the `.next` folder
-   - Or connect your GitHub repository
+   - Click "Add new site" → "Import an existing project"
+   - Connect your GitHub repository
+   - Netlify auto-detects Next.js settings
 
-3. **Configure Build Settings**
-   - Build command: `npm run build`
-   - Publish directory: `.next`
+3. **Configure Environment Variables** (REQUIRED)
+   - Go to **Site settings** → **Environment variables**
+   - Click **Add a variable**
+   - Add these variables:
+     - **Key**: `COINMARKETCAP_API_KEY` (REQUIRED)
+     - **Value**: Your CoinMarketCap API key
+     - **Scopes**: Check all (Production, Deploy Previews, Branch deploys)
+   - Click **Save**
+
+4. **Deploy**
+   - Trigger a new deploy or wait for automatic deployment
+   - Your site will be live in 2-3 minutes! 🎉
 
 #### Netlify Features:
 - ✅ Continuous deployment
-- ✅ Form handling
-- ✅ Split testing
-- ✅ Free SSL
+- ✅ Environment variable management
+- ✅ Deploy previews for PRs
+- ✅ Free SSL certificate
+- ✅ Custom domain support
+
+#### ⚠️ Important for Netlify:
+The `COINMARKETCAP_API_KEY` is **REQUIRED**. Without it, exchange fee data cannot be fetched and the site will show an error.
 
 ### Option 3: Static Export
 
@@ -171,11 +189,14 @@ docker run -p 3000:3000 cryptofees
 Create these in your hosting platform:
 
 ```env
+# REQUIRED - CoinMarketCap API Key
+COINMARKETCAP_API_KEY=your_coinmarketcap_api_key_here
+
 # Required
 NEXT_PUBLIC_SITE_URL=https://yourdomain.com
 
-# Optional - For higher API rate limits
-NEXT_PUBLIC_COINGECKO_API_KEY=your_api_key_here
+# Optional - For supplementary data
+NEXT_PUBLIC_COINGECKO_API_KEY=your_coingecko_api_key_here
 
 # Optional - For persistent caching
 REDIS_URL=your_redis_url
@@ -184,13 +205,28 @@ VERCEL_KV_URL=your_vercel_kv_url
 
 ### Getting API Keys
 
+#### CoinMarketCap API Key (REQUIRED) ⭐
+1. Go to https://pro.coinmarketcap.com/signup
+2. Sign up for **FREE** Basic plan
+3. Verify your email
+4. Go to API Keys section in dashboard
+5. Copy your API key
+6. Add to environment variables in your hosting platform
+
+**Free Tier Limits**:
+- 333 calls per day
+- 10,000 calls per month
+- Perfect for this app with 24-hour caching
+
+**Why Required?** CoinMarketCap provides REAL maker/taker fee data for exchanges, unlike other APIs.
+
 #### CoinGecko API Key (Optional)
 1. Go to [CoinGecko API](https://www.coingecko.com/en/api)
 2. Sign up for free account
 3. Get your API key
 4. Add to environment variables
 
-**Note**: The app works without an API key using the free tier.
+**Note**: CoinGecko is optional and used for supplementary data like trust scores.
 
 ## Post-Deployment
 

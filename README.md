@@ -40,10 +40,22 @@ cd cryptofees
 npm install
 ```
 
-3. Create environment file (optional):
+3. Create environment file and add your CoinMarketCap API key:
 ```bash
 cp .env.local.example .env.local
 ```
+
+Edit `.env.local` and add your API key:
+```env
+COINMARKETCAP_API_KEY=your_api_key_here
+```
+
+**Get your FREE API key**:
+1. Go to https://pro.coinmarketcap.com/signup
+2. Sign up (free Basic plan)
+3. Verify your email
+4. Copy your API key from the dashboard
+5. Paste it in `.env.local`
 
 4. Run the development server:
 ```bash
@@ -84,8 +96,8 @@ Both routes implement 24-hour caching to minimize API calls and improve performa
 
 ## Data Sources
 
-- **CoinGecko API** - CEX exchange data (free tier)
-- **Public Exchange APIs** - Binance, Kraken, Coinbase
+- **CoinMarketCap API** - PRIMARY source for CEX data with REAL maker/taker fees (requires free API key)
+- **CoinGecko API** - Supplementary data for trust scores and metadata (free tier, no key required)
 - **The Graph Protocol** - DEX data (Uniswap, PancakeSwap, etc.)
 
 ## Deployment
@@ -134,10 +146,16 @@ npm run build
 
 ## Environment Variables
 
-Optional environment variables (see `.env.local.example`):
+Required and optional environment variables (see `.env.local.example`):
 
+### Required
+- `COINMARKETCAP_API_KEY` - **REQUIRED** for real exchange fee data
+  - Get free API key at: https://pro.coinmarketcap.com/signup
+  - Free tier: 333 calls/day (perfect with 24-hour caching)
+
+### Optional
 - `NEXT_PUBLIC_SITE_URL` - Your site URL
-- `NEXT_PUBLIC_COINGECKO_API_KEY` - CoinGecko API key for higher rate limits
+- `NEXT_PUBLIC_COINGECKO_API_KEY` - CoinGecko API key for supplementary data
 
 ## Contributing
 

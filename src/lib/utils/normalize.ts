@@ -1,13 +1,38 @@
 import { CEXFees, DEXFees } from '@/lib/types/exchange';
 import { CoinGeckoExchange } from '@/lib/types/api';
+import { CMCExchangeInfo } from '@/lib/api/coinmarketcap';
 
+/**
+ * Normalize CoinMarketCap exchange data with REAL fees
+ */
+export function normalizeCMCData(rawData: CMCExchangeInfo & { id: number }): CEXFees {
+  return {
+    exchangeId: rawData.slug || rawData.id.toString(),
+    exchangeName: rawData.name,
+    logo: rawData.logo || `/logos/${rawData.slug}.png`,
+    makerFee: rawData.maker_fee || 0,
+    takerFee: rawData.taker_fee || 0,
+    withdrawalFees: {},
+    depositFees: {},
+    trustScore: 0, // CMC doesn't provide trust score, can supplement with CoinGecko
+    volume24h: rawData.spot_volume_usd ? rawData.spot_volume_usd / 50000 : 0, // Convert USD to BTC estimate
+    yearEstablished: rawData.date_launched ? new Date(rawData.date_launched).getFullYear() : null,
+    country: rawData.countries?.[0] || 'Unknown',
+    url: rawData.urls?.website?.[0] || '',
+    lastUpdated: new Date().toISOString(),
+  };
+}
+
+/**
+ * Normalize CoinGecko exchange data (for supplementary data)
+ */
 export function normalizeCEXData(rawData: CoinGeckoExchange): CEXFees {
   return {
     exchangeId: rawData.id,
     exchangeName: rawData.name,
     logo: rawData.image || `/logos/${rawData.id}.png`,
-    makerFee: 0.1, // CoinGecko doesn't provide fee data, using typical default
-    takerFee: 0.1, // These would need to be fetched from individual exchange APIs
+    makerFee: 0,
+    takerFee: 0,
     withdrawalFees: {},
     depositFees: {},
     trustScore: rawData.trust_score || 0,
@@ -17,33 +42,6 @@ export function normalizeCEXData(rawData: CoinGeckoExchange): CEXFees {
     url: rawData.url || '',
     lastUpdated: new Date().toISOString(),
   };
-}
-
-// Known fee overrides for popular exchanges (from their official documentation)
-const KNOWN_FEES: Record<string, { maker: number; taker: number }> = {
-  binance: { maker: 0.1, taker: 0.1 },
-  coinbase_exchange: { maker: 0.4, taker: 0.6 },
-  kraken: { maker: 0.16, taker: 0.26 },
-  kucoin: { maker: 0.1, taker: 0.1 },
-  bybit_spot: { maker: 0.1, taker: 0.1 },
-  okx: { maker: 0.08, taker: 0.1 },
-  gate: { maker: 0.15, taker: 0.15 },
-  huobi: { maker: 0.2, taker: 0.2 },
-  bitfinex: { maker: 0.1, taker: 0.2 },
-  gemini: { maker: 0.25, taker: 0.35 },
-};
-
-export function normalizeCEXDataWithFees(rawData: CoinGeckoExchange): CEXFees {
-  const normalized = normalizeCEXData(rawData);
-  
-  // Apply known fees if available
-  const knownFee = KNOWN_FEES[rawData.id];
-  if (knownFee) {
-    normalized.makerFee = knownFee.maker;
-    normalized.takerFee = knownFee.taker;
-  }
-  
-  return normalized;
 }
 
 export function normalizeDEXData(rawData: any): DEXFees {
