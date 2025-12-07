@@ -1,26 +1,26 @@
 import { Box, Heading, Text, VStack, Badge, HStack } from '@chakra-ui/react';
 import { Layout } from '@/components/layout/Layout';
-import { ExchangeGrid } from '@/components/exchange/ExchangeGrid';
-import { ExchangeFilters } from '@/components/exchange/ExchangeFilters';
+import { DEXGrid } from '@/components/exchange/DEXGrid';
+import { DEXFilters } from '@/components/exchange/DEXFilters';
 import { ErrorAlert } from '@/components/common/ErrorAlert';
-import { useExchangeFees } from '@/lib/hooks/useExchangeFees';
-import { useCEXFilters } from '@/lib/hooks/useFilters';
+import { useDEXFees } from '@/lib/hooks/useDEXFees';
+import { useDEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
 
-export default function HomePage() {
-  const { fees, isLoading, isError, cachedAt, isCached } = useExchangeFees();
+export default function DEXPage() {
+  const { fees, isLoading, isError, cachedAt, isCached } = useDEXFees();
   
   const {
     searchQuery,
     setSearchQuery,
     sortBy,
     setSortBy,
-    displayedExchanges,
+    displayedDEXes,
     totalCount,
     hasMore,
     loadMore,
     reset,
-  } = useCEXFilters(fees);
+  } = useDEXFilters(fees);
 
   return (
     <Layout>
@@ -28,11 +28,11 @@ export default function HomePage() {
         {/* Header */}
         <Box>
           <Heading size="xl" mb={2}>
-            Centralized Exchange (CEX) Fees
+            Decentralized Exchange (DEX) Fees
           </Heading>
           <HStack spacing={2} flexWrap="wrap">
             <Text color="gray.600">
-              Compare trading fees across top cryptocurrency exchanges
+              Compare swap fees and gas costs across DeFi protocols
             </Text>
             {cachedAt && (
               <Badge colorScheme={isCached ? 'yellow' : 'green'} fontSize="xs">
@@ -41,34 +41,34 @@ export default function HomePage() {
             )}
           </HStack>
           <Text fontSize="sm" color="gray.500" mt={2}>
-            💡 Tip: Lower fees mean more profit on your trades. Check DEX fees for decentralized options.
+            💡 Tip: DEX fees include swap fees + gas fees. Consider using Layer 2 solutions for lower costs.
           </Text>
         </Box>
 
         {/* Error handling */}
         {isError && (
           <ErrorAlert
-            title="Failed to load exchanges"
-            message="Unable to fetch exchange data. Please try again later."
+            title="Failed to load DEX data"
+            message="Unable to fetch DEX information. Please try again later."
           />
         )}
 
         {/* Filters */}
         {!isError && (
-          <ExchangeFilters
+          <DEXFilters
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
             sortBy={sortBy}
             onSortChange={setSortBy}
             onReset={reset}
             totalCount={totalCount}
-            displayedCount={displayedExchanges.length}
+            displayedCount={displayedDEXes.length}
           />
         )}
 
-        {/* Exchange Grid */}
-        <ExchangeGrid
-          exchanges={displayedExchanges}
+        {/* DEX Grid */}
+        <DEXGrid
+          dexes={displayedDEXes}
           isLoading={isLoading}
           hasMore={hasMore}
           onLoadMore={loadMore}
