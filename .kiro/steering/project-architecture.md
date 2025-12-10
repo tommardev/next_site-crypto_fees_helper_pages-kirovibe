@@ -4,223 +4,130 @@ inclusion: always
 
 # Crypto Exchange Fees Comparison - Project Architecture
 
-## Project Overview
-This is a Next.js + TypeScript + Chakra UI application for comparing cryptocurrency exchange fees (CEX and DEX). The site is optimized for static hosting on Vercel/Netlify.
+## Core Technology Stack
 
-## Technology Stack
+**Next.js 14+ (Pages Router) + TypeScript + Chakra UI + SWR**
 
-### Core Framework
-- **Next.js 14+** (latest stable) - React framework with App Router
-- **TypeScript 5+** - Type safety
-- **React 18+** - UI library
+- **Primary Data Source**: CoinMarketCap API (real fee data)
+- **UI Framework**: Chakra UI v2+ with built-in dark mode
+- **Data Fetching**: SWR with 24-hour caching
+- **Deployment**: Static export for Vercel/Netlify
 
-### UI/UX Framework
-- **Chakra UI v2+** - Component library with built-in dark mode
-- **Framer Motion** - Animations and transitions
-- **React Icons** - Icon library for exchange logos
+## Project Structure (MANDATORY)
 
-### Data Management
-- **SWR** or **TanStack Query (React Query)** - Data fetching, caching, and revalidation
-- **Zustand** or **Jotai** - Lightweight state management (if needed)
-
-### API & Data Sources
-- **CoinGecko API** (free tier) - Exchange data and fees
-- **CryptoCompare API** (free tier) - Additional exchange information
-- **Binance Public API** - Real-time Binance fees
-- **Uniswap Subgraph** - DEX data
-- **1inch API** - DEX aggregator data
-
-## Project Structure
-
-```
+```text
 src/
-├── app/                    # Next.js App Router (if upgrading)
-│   ├── layout.tsx
-│   ├── page.tsx
-│   └── ...
-├── pages/                  # Next.js Pages Router (current)
+├── pages/
 │   ├── index.tsx          # CEX fees main page
 │   ├── dex.tsx            # DEX fees page
-│   ├── about.tsx          # About page
-│   ├── contact.tsx        # Contact page
-│   ├── api/               # API routes for data fetching
-│   │   ├── cex-fees.ts
-│   │   └── dex-fees.ts
-│   ├── _app.tsx
-│   └── _document.tsx
+│   ├── api/
+│   │   ├── cex-fees.ts    # Primary API route
+│   │   └── dex-fees.ts    # DEX API route
 ├── components/
-│   ├── layout/            # Layout components
-│   │   ├── Header.tsx
-│   │   ├── Footer.tsx
-│   │   └── Layout.tsx
 │   ├── exchange/          # Exchange-specific components
-│   │   ├── ExchangeCard.tsx
-│   │   ├── ExchangeGrid.tsx
-│   │   ├── ExchangeFilters.tsx
-│   │   └── ExchangeSkeleton.tsx
-│   ├── common/            # Reusable components
-│   │   ├── LoadingSkeleton.tsx
-│   │   ├── ErrorBoundary.tsx
-│   │   └── SearchBar.tsx
-│   └── ui/                # UI primitives
+│   ├── layout/            # Header, Footer, Layout
+│   └── common/            # ErrorBoundary, ErrorAlert
 ├── lib/
-│   ├── api/               # API client functions
-│   │   ├── cex-api.ts
-│   │   ├── dex-api.ts
-│   │   └── cache.ts
-│   ├── hooks/             # Custom React hooks
-│   │   ├── useExchangeFees.ts
-│   │   └── useFilters.ts
-│   ├── utils/             # Utility functions
-│   │   ├── formatters.ts
-│   │   └── sorting.ts
-│   └── types/             # TypeScript types
-│       ├── exchange.ts
-│       └── api.ts
+│   ├── api/               # coinmarketcap.ts, error-handler.ts
+│   ├── hooks/             # useExchangeFees.ts, useFilters.ts
+│   ├── types/             # exchange.ts, api.ts
+│   └── utils/             # formatters.ts, normalize.ts
 ├── config/
-│   ├── exchanges.ts       # Exchange configurations
-│   └── constants.ts       # App constants
-├── styles/
-│   └── theme.ts           # Chakra UI theme
-└── public/
-    └── logos/             # Exchange logos
+│   ├── constants.ts       # App constants
+│   └── exchanges.ts       # Exchange configurations
 ```
 
-## Component Architecture Principles
+## Architecture Principles
 
-### 1. Component Composition
-- Break down UI into small, reusable components
-- Use composition over inheritance
-- Keep components focused on single responsibility
+### Component Rules
+- **Always use TypeScript interfaces** - Never use `any` types
+- **Chakra UI components only** - Use `useColorModeValue` for dark mode
+- **Named exports preferred** - `export function ComponentName`
+- **Single responsibility** - One concern per component
 
-### 2. Server vs Client Components
-- Use Server Components by default (Next.js 13+ App Router)
-- Mark interactive components with 'use client'
-- Minimize client-side JavaScript
+### Data Flow Pattern
+1. **API Routes** (`pages/api/`) fetch and cache data (24-hour TTL)
+2. **Custom Hooks** (`lib/hooks/`) use SWR for client-side caching
+3. **Components** consume hooks, handle loading/error states
+4. **Types** (`lib/types/`) define all interfaces first
 
-### 3. Data Fetching Strategy
-- Fetch data in API routes or server components
-- Use SWR/React Query for client-side caching
-- Implement stale-while-revalidate pattern
+### File Naming Conventions
+- **Components**: PascalCase (`ExchangeCard.tsx`)
+- **Hooks**: camelCase with `use` prefix (`useExchangeFees.ts`)
+- **Types**: camelCase (`exchange.ts`, `api.ts`)
+- **Utils**: camelCase (`formatters.ts`)
 
-### 4. Type Safety
-- Define strict TypeScript interfaces for all data
-- Use discriminated unions for different exchange types
-- Avoid `any` types
+## Required Patterns
 
-## Caching Strategy
-
-### Global Cache (24-hour persistence)
+### API Route Structure
 ```typescript
-// Implement in API routes with Next.js cache
-export const revalidate = 86400; // 24 hours
+// 24-hour cache with error handling
+let cache: { data: any; timestamp: number } | null = null;
+const CACHE_DURATION = 24 * 60 * 60 * 1000;
 
-// Or use external cache (Redis, Vercel KV)
-const CACHE_TTL = 24 * 60 * 60; // 24 hours in seconds
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  if (cache && Date.now() - cache.timestamp < CACHE_DURATION) {
+    return res.status(200).json({ data: cache.data, cached: true });
+  }
+  // Fetch, cache, return with proper error handling
+}
 ```
 
-### Cache Layers
-1. **CDN Cache** - Static pages cached at edge
-2. **API Route Cache** - Next.js built-in caching
-3. **Client Cache** - SWR/React Query for user session
-4. **Persistent Cache** - Vercel KV or similar for API responses
-
-### Cache Invalidation
-- Automatic revalidation after 24 hours
-- Manual revalidation endpoint for admin
-- Stale-while-revalidate for better UX
-
-## Modern UI/UX Requirements
-
-### Design Principles
-- **Mobile-first** responsive design
-- **Dark mode** support (Chakra UI built-in)
-- **Skeleton loading** for all data-dependent components
-- **Smooth animations** with Framer Motion
-- **Accessible** (WCAG 2.1 AA compliance)
-
-### Card Grid Design
+### Component Structure
 ```typescript
-// Exchange card should display:
-- Exchange logo (small, optimized)
-- Exchange name
-- Trading fee (maker/taker)
-- Withdrawal fee (average)
-- Rating/popularity indicator
-- Quick action button
+// Always include loading and error states
+export function ExchangeGrid({ exchanges, isLoading, error }: Props) {
+  if (error) return <ErrorAlert message={error.message} />;
+  if (isLoading) return <ExchangeSkeleton count={9} />;
+  return <SimpleGrid columns={{ base: 1, md: 2, lg: 3 }}>{/* content */}</SimpleGrid>;
+}
 ```
 
-### Filtering & Sorting
-- Filter by: Exchange type, fee range, supported coins
-- Sort by: Fees (low to high), Name (A-Z), Popularity
-- Search by exchange name
-- Persist filters in URL query params
-
-### Performance Targets
-- **First Contentful Paint**: < 1.5s
-- **Time to Interactive**: < 3.5s
-- **Lighthouse Score**: > 90
-- **Bundle Size**: < 200KB (initial)
-
-## Static Export Configuration
-
+### Dark Mode Pattern
 ```typescript
-// next.config.js
+// Always use useColorModeValue for colors
+const bgColor = useColorModeValue('white', 'gray.800');
+const borderColor = useColorModeValue('gray.200', 'gray.700');
+```
+
+## Static Export Requirements
+
+### next.config.js (MANDATORY)
+```javascript
 module.exports = {
-  output: 'export', // For static hosting
-  images: {
-    unoptimized: true, // Required for static export
-  },
+  output: 'export',
+  images: { unoptimized: true },
   trailingSlash: true,
 };
 ```
 
-## Environment Variables
-```
-# .env.local
-NEXT_PUBLIC_COINGECKO_API_KEY=
-NEXT_PUBLIC_CRYPTOCOMPARE_API_KEY=
-CACHE_REDIS_URL= # Optional for persistent cache
-```
-
-## Development Guidelines
-
-### Code Style
-- Use functional components with hooks
-- Prefer named exports for components
-- Use absolute imports with `@/` prefix
-- Follow Chakra UI naming conventions
-
-### Testing (if implemented)
-- Unit tests for utility functions
-- Integration tests for API routes
-- E2E tests for critical user flows
-
-### Performance Optimization
-- Use `next/image` for logos (with fallback for static export)
-- Implement code splitting with dynamic imports
-- Lazy load below-the-fold content
-- Minimize bundle size with tree shaking
-
-## Deployment
-
-### Vercel (Recommended)
+### Environment Variables
 ```bash
-vercel --prod
+# Required for CoinMarketCap API
+COINMARKETCAP_API_KEY=your_key_here
 ```
 
-### Netlify
-```bash
-npm run build
-# Deploy 'out' directory
-```
+## Performance Requirements
 
-### Build Command
-```bash
-npm run build
-```
+- **Bundle Size**: < 200KB initial load
+- **Caching**: 24-hour API cache, SWR client cache
+- **Loading States**: Skeleton components for all data-dependent UI
+- **Responsive**: Mobile-first with Chakra UI breakpoints
+- **Accessibility**: ARIA labels, keyboard navigation
 
-### Output Directory
-```
-out/
-```
+## Critical Rules
+
+### ✅ ALWAYS DO
+- Define TypeScript interfaces before implementing
+- Use CoinMarketCap API as primary data source
+- Implement 24-hour caching in API routes
+- Use `useColorModeValue` for all colors
+- Include loading and error states in components
+- Use named exports for components
+
+### ❌ NEVER DO
+- Use `any` types in TypeScript
+- Skip error handling in API routes
+- Hardcode colors (use theme values)
+- Build UI without working API layer
+- Commit API keys to Git
