@@ -4,16 +4,21 @@ inclusion: always
 
 # API Integration - MANDATORY
 
-## Core Principle: CoinMarketCap Primary, 24-Hour Caching
+## Core Principle: Combined Data Sources, 24-Hour Caching
 
-**Use CoinMarketCap API as primary source with aggressive caching to stay within free tier limits.**
+**CRITICAL: CoinMarketCap fee data is unreliable. Use CMC/CoinGecko only for reliable data with placeholders for fees.**
 
-## Primary Data Source (REQUIRED)
+## Primary Data Sources (REQUIRED)
 
 ### CoinMarketCap API ⭐
 **Endpoint**: `https://pro-api.coinmarketcap.com`
 **Rate Limits**: 333 calls/day, 10,000 calls/month (free tier)
-**Why**: Provides REAL fee data (maker/taker fees) unlike CoinGecko
+**Use For**: Exchange rankings, volumes, basic metadata ONLY (fee data is unreliable)
+
+### CoinGecko API 
+**Endpoint**: `https://api.coingecko.com/api/v3`
+**Rate Limits**: 10-50 calls/minute (free tier)
+**Use For**: Trust scores, additional metadata, supplementary data
 
 ### Key Endpoints:
 ```typescript
@@ -54,24 +59,25 @@ export async function fetchTopExchanges(limit = 100) {
 
 ## Data Structures (MANDATORY)
 
-### CEX Fee Interface:
+### CEX Fee Interface (Updated for Placeholder Strategy):
 ```typescript
 interface CEXFees {
   exchangeId: string;
   exchangeName: string;
   logo: string;
-  makerFee: number;        // Percentage (e.g., 0.1 for 0.1%)
-  takerFee: number;        // Percentage
-  withdrawalFees: { [coin: string]: number };
-  trustScore: number;      // 1-10 scale
-  volume24h: number;       // USD
+  makerFee: number | null;        // null = placeholder for missing fee data
+  takerFee: number | null;        // null = placeholder for missing fee data
+  withdrawalFees: { [coin: string]: number };  // Placeholder object
+  depositFees: { [coin: string]: number };     // Placeholder object
+  trustScore: number;      // 1-10 scale (from CoinGecko)
+  volume24h: number;       // BTC (from CMC)
   country: string;
   url: string;
   lastUpdated: string;     // ISO timestamp
 }
 ```
 
-### DEX Fee Interface:
+### DEX Fee Interface (Updated for Real API Data):
 ```typescript
 interface DEXFees {
   dexId: string;
@@ -79,7 +85,7 @@ interface DEXFees {
   logo: string;
   protocol: 'AMM' | 'Order Book' | 'Aggregator';
   blockchain: string[];    // ['Ethereum', 'BSC', 'Polygon']
-  swapFee: number;         // Percentage
+  swapFee: number | null;  // null = placeholder for missing fee data
   gasFeeEstimate: { [blockchain: string]: { low: number; average: number; high: number } };
   liquidityUSD: number;
   volume24h: number;
@@ -197,21 +203,23 @@ const coinGeckoLimiter = new RateLimiter(50, 60000); // 50 req/min
 
 ## Data Normalization (REQUIRED)
 
-### Normalize Function:
+### Normalize Function (Updated for Placeholder Strategy):
 ```typescript
 // lib/utils/normalize.ts
-export function normalizeCEXData(rawData: any): CEXFees {
+export function normalizeCombinedExchangeData(rawData: any): CEXFees {
   return {
-    exchangeId: rawData.id,
+    exchangeId: rawData.slug || rawData.id?.toString() || rawData.name?.toLowerCase().replace(/\s+/g, '-'),
     exchangeName: rawData.name,
-    logo: rawData.image || `/logos/${rawData.id}.png`,
-    makerFee: parseFloat(rawData.maker_fee) || 0,
-    takerFee: parseFloat(rawData.taker_fee) || 0,
-    withdrawalFees: rawData.withdrawal_fees || {},
-    trustScore: rawData.trust_score || 0,
-    volume24h: rawData.trade_volume_24h_btc || 0,
-    country: rawData.country || 'Unknown',
-    url: rawData.url || '',
+    logo: rawData.logo || rawData.image || `/logos/${rawData.slug || rawData.id}.png`,
+    // Use null placeholders for fee data (CMC fees are unreliable)
+    makerFee: null, // Placeholder: Fee data not available
+    takerFee: null, // Placeholder: Fee data not available
+    withdrawalFees: {}, // Placeholder: Will be populated from dedicated sources
+    depositFees: {}, // Placeholder: Will be populated from dedicated sources
+    trustScore: rawData.trust_score || 0, // From CoinGecko
+    volume24h: rawData.volume_24h || rawData.spot_volume_usd || rawData.trade_volume_24h_btc || 0,
+    country: rawData.countries?.[0] || rawData.country || 'Unknown',
+    url: rawData.urls?.website?.[0] || rawData.url || '',
     lastUpdated: new Date().toISOString(),
   };
 }
@@ -225,8 +233,11 @@ export function normalizeCEXData(rawData: any): CEXFees {
 COINMARKETCAP_API_KEY=your_api_key_here
 # Get free key at: https://pro.coinmarketcap.com/signup
 
+# Recommended for better rate limits and DEX data
+COINGECKO_API_KEY=your_key_here
+# Get free key at: https://www.coingecko.com/en/api
+
 # Optional
-NEXT_PUBLIC_COINGECKO_API_KEY=your_key_here
 REDIS_URL=your_redis_url  # For persistent caching
 ```
 
@@ -249,7 +260,9 @@ REDIS_URL=your_redis_url  # For persistent caching
 ## Critical Rules
 
 ### ✅ ALWAYS DO:
-- Use CoinMarketCap as primary data source
+- Use CMC for exchange rankings and volumes only
+- Use CoinGecko for trust scores and metadata
+- Use null placeholders for missing fee data (never fake data)
 - Implement 24-hour caching to stay within rate limits
 - Include error handling with retry logic
 - Normalize all API responses to consistent interfaces
@@ -257,8 +270,9 @@ REDIS_URL=your_redis_url  # For persistent caching
 - Never commit API keys to Git
 
 ### ❌ NEVER DO:
+- Use CMC fee data (it's unreliable)
+- Use fake/hardcoded fee data
 - Make API calls without caching
-- Use CoinGecko for fee data (unreliable)
 - Skip error handling in API routes
 - Hardcode API endpoints
 - Expose API keys in client-side code

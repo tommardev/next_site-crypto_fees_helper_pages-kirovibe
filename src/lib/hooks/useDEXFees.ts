@@ -1,27 +1,47 @@
 import useSWR from 'swr';
 import { DEXFees } from '@/lib/types/exchange';
-import { APIResponse } from '@/lib/types/api';
 
-const fetcher = (url: string) => fetch(url).then(r => r.json());
-
+/**
+ * Hook to fetch DEX fees using real API data
+ * Implements 24-hour caching as per real-data-only policy
+ */
 export function useDEXFees() {
-  const { data, error, isLoading, mutate } = useSWR<APIResponse<DEXFees[]>>(
-    '/api/dex-fees',
-    fetcher,
-    {
-      revalidateOnFocus: false,
-      revalidateOnReconnect: false,
-      refreshInterval: 24 * 60 * 60 * 1000, // 24 hours
-      dedupingInterval: 60000, // 1 minute
-    }
-  );
+  const { data, error, isLoading } = useSWR('/api/dex-fees', {
+    refreshInterval: 24 * 60 * 60 * 1000, // 24 hours - matches API cache
+    dedupingInterval: 60000, // 1 minute
+  });
 
   return {
-    fees: data?.data,
+    dexes: data?.data as DEXFees[] | undefined,
     isLoading,
     isError: error,
     cachedAt: data?.cachedAt,
     isCached: data?.cached,
-    refetch: mutate,
+  };
+}
+
+/**
+ * Hook to fetch DEX fees with custom configuration
+ */
+export function useDEXFeesWithConfig(config?: {
+  refreshInterval?: number;
+  revalidateOnFocus?: boolean;
+}) {
+  const { data, error, isLoading, mutate } = useSWR('/api/dex-fees', fetcher, {
+    revalidateOnFocus: config?.revalidateOnFocus ?? false,
+    revalidateOnReconnect: false,
+    refreshInterval: config?.refreshInterval ?? 24 * 60 * 60 * 1000,
+    dedupingInterval: 60000,
+    errorRetryCount: 3,
+    errorRetryInterval: 5000,
+  });
+
+  return {
+    dexes: data?.data as DEXFees[] | undefined,
+    isLoading,
+    isError: error,
+    cachedAt: data?.cachedAt,
+    isCached: data?.cached,
+    refresh: mutate,
   };
 }

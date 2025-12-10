@@ -1,8 +1,19 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { fetchExchangesWithDetails } from '@/lib/api/coinmarketcap';
-import { normalizeCMCData } from '@/lib/utils/normalize';
+import { fetchCombinedExchangeData } from '@/lib/api/coinmarketcap';
+import { normalizeCombinedExchangeData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
 import { CACHE_DURATION } from '@/config/constants';
+
+/**
+ * CEX Fees API Route
+ * 
+ * DATA STRATEGY:
+ * - CoinMarketCap: Exchange rankings, volumes, basic metadata (CMC fee data is unreliable)
+ * - CoinGecko: Trust scores, additional metadata
+ * - Fee Data: Currently using placeholders (null values) until dedicated fee sources are integrated
+ * 
+ * FUTURE: Will integrate dedicated fee data sources while keeping CMC/CoinGecko for rankings and metadata
+ */
 
 // In-memory cache for development
 let cache: { data: any; timestamp: number } | null = null;
@@ -29,17 +40,16 @@ export default async function handler(
     if (!process.env.COINMARKETCAP_API_KEY) {
       return res.status(500).json({
         error: 'API key not configured',
-        message: 'COINMARKETCAP_API_KEY environment variable is required. Get your free API key at https://pro.coinmarketcap.com/signup',
+        message: 'COINMARKETCAP_API_KEY environment variable is required for exchange rankings and metadata. Get your free API key at https://pro.coinmarketcap.com/signup',
       });
     }
 
-    // Fetch fresh data from CoinMarketCap with REAL fees
-    const rawData = await fetchExchangesWithDetails(100);
+    // Fetch combined data from CMC (volumes, rankings) + CoinGecko (trust scores)
+    // NOTE: CMC fee data is unreliable, so we use placeholders for now
+    const rawData = await fetchCombinedExchangeData(100);
     
-    // Normalize data
-    const normalizedData = rawData
-      .filter(ex => ex.maker_fee !== undefined && ex.taker_fee !== undefined)
-      .map(normalizeCMCData);
+    // Normalize data with placeholder fee values
+    const normalizedData = rawData.map(normalizeCombinedExchangeData);
 
     // Update cache
     cache = {

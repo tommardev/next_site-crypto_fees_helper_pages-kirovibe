@@ -68,7 +68,12 @@ export function ExchangeCard({ exchange, rank }: ExchangeCardProps) {
           <HStack spacing={4} fontSize="sm" flexWrap="wrap">
             <Tooltip label="Maker Fee" hasArrow>
               <Text>
-                Maker: <Text as="span" fontWeight="semibold" color="green.500">
+                Maker: <Text 
+                  as="span" 
+                  fontWeight="semibold" 
+                  color={exchange.makerFee !== null ? "green.500" : "gray.500"}
+                  fontStyle={exchange.makerFee === null ? "italic" : "normal"}
+                >
                   {formatFee(exchange.makerFee)}
                 </Text>
               </Text>
@@ -76,7 +81,12 @@ export function ExchangeCard({ exchange, rank }: ExchangeCardProps) {
             
             <Tooltip label="Taker Fee" hasArrow>
               <Text>
-                Taker: <Text as="span" fontWeight="semibold" color="blue.500">
+                Taker: <Text 
+                  as="span" 
+                  fontWeight="semibold" 
+                  color={exchange.takerFee !== null ? "blue.500" : "gray.500"}
+                  fontStyle={exchange.takerFee === null ? "italic" : "normal"}
+                >
                   {formatFee(exchange.takerFee)}
                 </Text>
               </Text>

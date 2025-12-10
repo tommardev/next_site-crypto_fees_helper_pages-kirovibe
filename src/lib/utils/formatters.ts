@@ -1,5 +1,6 @@
-// Format fee percentage
-export function formatFee(fee: number): string {
+// Format fee percentage (handles null values for missing data)
+export function formatFee(fee: number | null): string {
+  if (fee === null) return '-';
   return `${fee.toFixed(2)}%`;
 }
 

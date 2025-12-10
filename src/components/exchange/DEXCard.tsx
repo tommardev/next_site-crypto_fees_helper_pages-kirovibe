@@ -79,7 +79,12 @@ export function DEXCard({ dex, rank }: DEXCardProps) {
           <HStack spacing={4} fontSize="sm" flexWrap="wrap">
             <Tooltip label="Swap Fee" hasArrow>
               <Text>
-                Fee: <Text as="span" fontWeight="semibold" color="green.500">
+                Fee: <Text 
+                  as="span" 
+                  fontWeight="semibold" 
+                  color={dex.swapFee !== null ? "green.500" : "gray.500"}
+                  fontStyle={dex.swapFee === null ? "italic" : "normal"}
+                >
                   {formatFee(dex.swapFee)}
                 </Text>
               </Text>
