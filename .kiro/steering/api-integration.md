@@ -2,32 +2,35 @@
 inclusion: always
 ---
 
-# API Integration Guidelines
+# API Integration - MANDATORY
 
-## API Data Sources (Priority Order)
+## Core Principle: Combined Data Sources, 24-Hour Caching
 
-### 1. CoinMarketCap API (PRIMARY - API KEY REQUIRED) ⭐
+**CRITICAL: CoinMarketCap fee data is unreliable. Use CMC/CoinGecko only for reliable data with placeholders for fees.**
+
+## Primary Data Sources (REQUIRED)
+
+### CoinMarketCap API ⭐
 **Endpoint**: `https://pro-api.coinmarketcap.com`
+**Rate Limits**: 333 calls/day, 10,000 calls/month (free tier)
+**Use For**: Exchange rankings, volumes, basic metadata ONLY (fee data is unreliable)
 
-**Rate Limits**: 
-- Basic (Free): 333 calls/day, 10,000 calls/month
-- Hobbyist: $29/month - 10,000 calls/day
-- Startup: $79/month - 30,000 calls/day
+### CoinGecko API 
+**Endpoint**: `https://api.coingecko.com/api/v3`
+**Rate Limits**: 10-50 calls/minute (free tier)
+**Use For**: Trust scores, additional metadata, supplementary data
 
-**Why CoinMarketCap**: Provides REAL fee data (maker/taker fees) unlike CoinGecko
-
-**Useful Endpoints**:
+### Key Endpoints:
 ```typescript
-// Get exchange ID map (for top exchanges)
+// Get exchange ID map
 GET /v1/exchange/map?start=1&limit=100&sort=volume_24h
-// Returns: id, name, slug, is_active
 
 // Get exchange details with REAL FEES
 GET /v1/exchange/info?id=270,294,311
-// Returns: maker_fee, taker_fee, spot_volume_usd, etc.
+// Returns: maker_fee, taker_fee, spot_volume_usd
 ```
 
-**Implementation Example**:
+### Implementation Pattern (REQUIRED):
 ```typescript
 // lib/api/coinmarketcap.ts
 const BASE_URL = 'https://pro-api.coinmarketcap.com';
@@ -36,136 +39,45 @@ const API_KEY = process.env.COINMARKETCAP_API_KEY;
 export async function fetchTopExchanges(limit = 100) {
   const response = await fetch(
     `${BASE_URL}/v1/exchange/map?start=1&limit=${limit}&sort=volume_24h`,
-    {
-      headers: {
-        'X-CMC_PRO_API_KEY': API_KEY,
-      },
-    }
-  );
-  return response.json();
-}
-
-export async function fetchExchangeInfo(ids: number[]) {
-  const response = await fetch(
-    `${BASE_URL}/v1/exchange/info?id=${ids.join(',')}`,
-    {
-      headers: {
-        'X-CMC_PRO_API_KEY': API_KEY,
-      },
-    }
+    { headers: { 'X-CMC_PRO_API_KEY': API_KEY } }
   );
   return response.json();
 }
 ```
 
-### 2. CoinGecko API (SUPPLEMENTARY - NO API KEY REQUIRED)
+## Supplementary Sources
+
+### CoinGecko API (Backup Data)
 **Endpoint**: `https://api.coingecko.com/api/v3`
-
 **Rate Limits**: 10-50 calls/minute (free tier)
+**Use For**: Trust scores, additional metadata only
 
-**Use For**: Trust scores, additional metadata, backup data
+### DEX Data Sources
+- **Uniswap Subgraph**: `https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3`
+- **1inch API**: `https://api.1inch.dev/swap/v5.2/1`
+- **PancakeSwap Subgraph**: For BSC DEX data
 
-**Useful Endpoints**:
-```typescript
-// Get list of exchanges with trust scores
-GET /exchanges
-// Returns: id, name, trust_score, trade_volume_24h_btc
-```
+## Data Structures (MANDATORY)
 
-### 2. Binance Public API (NO API KEY REQUIRED)
-**Endpoint**: `https://api.binance.com/api/v3`
-
-**Rate Limits**: 1200 requests/minute
-
-**Useful Endpoints**:
-```typescript
-// Get trading fees (requires API key for user-specific, but general info available)
-GET /exchangeInfo
-// Returns: trading rules, fees structure
-
-// Get 24hr ticker price change statistics
-GET /ticker/24hr
-```
-
-### 3. Kraken Public API (NO API KEY REQUIRED)
-**Endpoint**: `https://api.kraken.com/0/public`
-
-**Useful Endpoints**:
-```typescript
-// Get asset pairs with fee info
-GET /AssetPairs
-// Returns: fees, fee_volume_currency
-
-// Get ticker information
-GET /Ticker
-```
-
-### 4. Coinbase Public API (NO API KEY REQUIRED)
-**Endpoint**: `https://api.coinbase.com/v2`
-
-**Useful Endpoints**:
-```typescript
-// Get exchange rates
-GET /exchange-rates
-
-// Get spot prices
-GET /prices/{currency_pair}/spot
-```
-
-### 5. DEX Data Sources
-
-#### Uniswap Subgraph (FREE)
-**Endpoint**: `https://api.thegraph.com/subgraphs/name/uniswap/uniswap-v3`
-
-```graphql
-query {
-  pools(first: 20, orderBy: volumeUSD, orderDirection: desc) {
-    id
-    feeTier
-    volumeUSD
-    token0 { symbol }
-    token1 { symbol }
-  }
-}
-```
-
-#### 1inch API (FREE with limits)
-**Endpoint**: `https://api.1inch.dev/swap/v5.2/1`
-
-```typescript
-// Get liquidity sources
-GET /liquidity-sources
-```
-
-#### PancakeSwap Subgraph (FREE)
-**Endpoint**: `https://api.thegraph.com/subgraphs/name/pancakeswap/exchange-v2`
-
-## Data Aggregation Strategy
-
-### CEX Fee Structure
+### CEX Fee Interface (Updated for Placeholder Strategy):
 ```typescript
 interface CEXFees {
   exchangeId: string;
   exchangeName: string;
   logo: string;
-  makerFee: number;        // Percentage (e.g., 0.1 for 0.1%)
-  takerFee: number;        // Percentage
-  withdrawalFees: {
-    [coin: string]: number; // Absolute amount
-  };
-  depositFees: {
-    [coin: string]: number;
-  };
-  trustScore: number;      // 1-10 scale
-  volume24h: number;       // USD
-  yearEstablished: number;
+  makerFee: number | null;        // null = placeholder for missing fee data
+  takerFee: number | null;        // null = placeholder for missing fee data
+  withdrawalFees: { [coin: string]: number };  // Placeholder object
+  depositFees: { [coin: string]: number };     // Placeholder object
+  trustScore: number;      // 1-10 scale (from CoinGecko)
+  volume24h: number;       // BTC (from CMC)
   country: string;
   url: string;
   lastUpdated: string;     // ISO timestamp
 }
 ```
 
-### DEX Fee Structure
+### DEX Fee Interface (Updated for Real API Data):
 ```typescript
 interface DEXFees {
   dexId: string;
@@ -173,14 +85,8 @@ interface DEXFees {
   logo: string;
   protocol: 'AMM' | 'Order Book' | 'Aggregator';
   blockchain: string[];    // ['Ethereum', 'BSC', 'Polygon']
-  swapFee: number;         // Percentage
-  gasFeeEstimate: {
-    [blockchain: string]: {
-      low: number;         // USD
-      average: number;
-      high: number;
-    };
-  };
+  swapFee: number | null;  // null = placeholder for missing fee data
+  gasFeeEstimate: { [blockchain: string]: { low: number; average: number; high: number } };
   liquidityUSD: number;
   volume24h: number;
   url: string;
@@ -188,22 +94,16 @@ interface DEXFees {
 }
 ```
 
-## Caching Implementation
+## Caching Strategy (CRITICAL)
 
-### API Route with Built-in Cache
+### API Route Cache Pattern (REQUIRED):
 ```typescript
 // pages/api/cex-fees.ts
-import { NextApiRequest, NextApiResponse } from 'next';
-
-// In-memory cache (for development)
 let cache: { data: any; timestamp: number } | null = null;
 const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
 
-export default async function handler(
-  req: NextApiRequest,
-  res: NextApiResponse
-) {
-  // Check cache
+export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  // Check cache first
   if (cache && Date.now() - cache.timestamp < CACHE_DURATION) {
     return res.status(200).json({
       data: cache.data,
@@ -213,38 +113,20 @@ export default async function handler(
   }
 
   try {
-    // Fetch fresh data
     const data = await fetchAllExchangeFees();
-    
-    // Update cache
-    cache = {
-      data,
-      timestamp: Date.now(),
-    };
-
-    // Set cache headers
-    res.setHeader(
-      'Cache-Control',
-      'public, s-maxage=86400, stale-while-revalidate=172800'
-    );
-
-    return res.status(200).json({
-      data,
-      cached: false,
-      cachedAt: new Date().toISOString(),
-    });
+    cache = { data, timestamp: Date.now() };
+    res.setHeader('Cache-Control', 'public, s-maxage=86400, stale-while-revalidate=172800');
+    return res.status(200).json({ data, cached: false });
   } catch (error) {
     return res.status(500).json({ error: 'Failed to fetch exchange fees' });
   }
 }
 ```
 
-### Client-Side Caching with SWR
+### Client-Side Caching (REQUIRED):
 ```typescript
 // lib/hooks/useExchangeFees.ts
 import useSWR from 'swr';
-
-const fetcher = (url: string) => fetch(url).then(r => r.json());
 
 export function useExchangeFees() {
   const { data, error, isLoading } = useSWR('/api/cex-fees', fetcher, {
@@ -263,78 +145,51 @@ export function useExchangeFees() {
 }
 ```
 
-## Error Handling
+## Error Handling (MANDATORY)
 
-### API Error Wrapper
+### API Error Class:
 ```typescript
 // lib/api/error-handler.ts
 export class APIError extends Error {
-  constructor(
-    message: string,
-    public statusCode: number,
-    public source: string
-  ) {
+  constructor(message: string, public statusCode: number, public source: string) {
     super(message);
     this.name = 'APIError';
   }
 }
 
-export async function fetchWithRetry(
-  url: string,
-  options: RequestInit = {},
-  retries = 3
-): Promise<Response> {
+export async function fetchWithRetry(url: string, options: RequestInit = {}, retries = 3): Promise<Response> {
   for (let i = 0; i < retries; i++) {
     try {
       const response = await fetch(url, options);
-      
       if (!response.ok) {
-        throw new APIError(
-          `HTTP ${response.status}: ${response.statusText}`,
-          response.status,
-          url
-        );
+        throw new APIError(`HTTP ${response.status}: ${response.statusText}`, response.status, url);
       }
-      
       return response;
     } catch (error) {
       if (i === retries - 1) throw error;
-      
-      // Exponential backoff
-      await new Promise(resolve => 
-        setTimeout(resolve, Math.pow(2, i) * 1000)
-      );
+      await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000)); // Exponential backoff
     }
   }
-  
   throw new Error('Max retries exceeded');
 }
 ```
 
-## Rate Limiting Strategy
+## Rate Limiting (REQUIRED)
 
-### Simple Rate Limiter
+### Simple Rate Limiter:
 ```typescript
 // lib/api/rate-limiter.ts
 class RateLimiter {
   private requests: number[] = [];
   
-  constructor(
-    private maxRequests: number,
-    private windowMs: number
-  ) {}
+  constructor(private maxRequests: number, private windowMs: number) {}
   
   async throttle(): Promise<void> {
     const now = Date.now();
-    
-    // Remove old requests outside the window
-    this.requests = this.requests.filter(
-      time => now - time < this.windowMs
-    );
+    this.requests = this.requests.filter(time => now - time < this.windowMs);
     
     if (this.requests.length >= this.maxRequests) {
-      const oldestRequest = this.requests[0];
-      const waitTime = this.windowMs - (now - oldestRequest);
+      const waitTime = this.windowMs - (now - this.requests[0]);
       await new Promise(resolve => setTimeout(resolve, waitTime));
       return this.throttle();
     }
@@ -343,107 +198,83 @@ class RateLimiter {
   }
 }
 
-// Usage
 const coinGeckoLimiter = new RateLimiter(50, 60000); // 50 req/min
-
-export async function fetchWithRateLimit(url: string) {
-  await coinGeckoLimiter.throttle();
-  return fetch(url);
-}
 ```
 
-## Data Transformation
+## Data Normalization (REQUIRED)
 
-### Normalize Exchange Data
+### Normalize Function (Updated for Placeholder Strategy):
 ```typescript
 // lib/utils/normalize.ts
-export function normalizeCEXData(rawData: any): CEXFees {
+export function normalizeCombinedExchangeData(rawData: any): CEXFees {
   return {
-    exchangeId: rawData.id,
+    exchangeId: rawData.slug || rawData.id?.toString() || rawData.name?.toLowerCase().replace(/\s+/g, '-'),
     exchangeName: rawData.name,
-    logo: rawData.image || `/logos/${rawData.id}.png`,
-    makerFee: parseFloat(rawData.maker_fee) || 0,
-    takerFee: parseFloat(rawData.taker_fee) || 0,
-    withdrawalFees: rawData.withdrawal_fees || {},
-    depositFees: {},
-    trustScore: rawData.trust_score || 0,
-    volume24h: rawData.trade_volume_24h_btc || 0,
-    yearEstablished: rawData.year_established || 0,
-    country: rawData.country || 'Unknown',
-    url: rawData.url || '',
+    logo: rawData.logo || rawData.image || `/logos/${rawData.slug || rawData.id}.png`,
+    // Use null placeholders for fee data (CMC fees are unreliable)
+    makerFee: null, // Placeholder: Fee data not available
+    takerFee: null, // Placeholder: Fee data not available
+    withdrawalFees: {}, // Placeholder: Will be populated from dedicated sources
+    depositFees: {}, // Placeholder: Will be populated from dedicated sources
+    trustScore: rawData.trust_score || 0, // From CoinGecko
+    volume24h: rawData.volume_24h || rawData.spot_volume_usd || rawData.trade_volume_24h_btc || 0,
+    country: rawData.countries?.[0] || rawData.country || 'Unknown',
+    url: rawData.urls?.website?.[0] || rawData.url || '',
     lastUpdated: new Date().toISOString(),
   };
 }
 ```
 
-## Environment Setup
+## Environment Setup (CRITICAL)
 
-### Required Environment Variables
+### Required Environment Variables:
 ```bash
 # .env.local
-
-# REQUIRED: CoinMarketCap API Key for real fee data
 COINMARKETCAP_API_KEY=your_api_key_here
+# Get free key at: https://pro.coinmarketcap.com/signup
 
-# Get your free API key at: https://pro.coinmarketcap.com/signup
+# Recommended for better rate limits and DEX data
+COINGECKO_API_KEY=your_key_here
+# Get free key at: https://www.coingecko.com/en/api
 
-# Optional: For higher rate limits on CoinGecko
-NEXT_PUBLIC_COINGECKO_API_KEY=your_key_here
-
-# Optional: For persistent caching
-REDIS_URL=your_redis_url
-VERCEL_KV_URL=your_vercel_kv_url
+# Optional
+REDIS_URL=your_redis_url  # For persistent caching
 ```
 
-### Getting CoinMarketCap API Key
-
+### CoinMarketCap API Key Setup:
 1. Go to https://pro.coinmarketcap.com/signup
-2. Sign up for a free account (Basic Plan)
-3. Verify your email
+2. Sign up for free account (Basic Plan)
+3. Verify email
 4. Go to API Keys section
-5. Copy your API key
-6. Add to `.env.local` file
+5. Copy API key
+6. Add to `.env.local`
 
-**Free Tier Limits**:
-- 333 calls per day
-- 10,000 calls per month
-- Perfect for this use case with 24-hour caching
+**Free Tier**: 333 calls/day, 10,000 calls/month (perfect with 24-hour caching)
 
-### Netlify Environment Variables
+### Netlify Environment Variables:
+1. Netlify dashboard → Site settings → Environment variables
+2. Add variable: `COINMARKETCAP_API_KEY` = your_key
+3. Select all scopes (Production, Deploy Previews, Branch deploys)
+4. Save and redeploy
 
-To add the API key to Netlify:
+## Critical Rules
 
-1. Go to your Netlify dashboard
-2. Select your site
-3. Go to **Site settings** → **Environment variables**
-4. Click **Add a variable**
-5. Add:
-   - **Key**: `COINMARKETCAP_API_KEY`
-   - **Value**: Your API key
-   - **Scopes**: Select all (Production, Deploy Previews, Branch deploys)
-6. Click **Save**
-7. Redeploy your site for changes to take effect
+### ✅ ALWAYS DO:
+- Use CMC for exchange rankings and volumes only
+- Use CoinGecko for trust scores and metadata
+- Use null placeholders for missing fee data (never fake data)
+- Implement 24-hour caching to stay within rate limits
+- Include error handling with retry logic
+- Normalize all API responses to consistent interfaces
+- Set proper cache headers on API routes
+- Never commit API keys to Git
 
-**Important**: Never commit API keys to Git. Always use environment variables.
+### ❌ NEVER DO:
+- Use CMC fee data (it's unreliable)
+- Use fake/hardcoded fee data
+- Make API calls without caching
+- Skip error handling in API routes
+- Hardcode API endpoints
+- Expose API keys in client-side code
 
-## Testing API Integration
-
-### Test API Endpoints
-```typescript
-// lib/api/__tests__/coingecko.test.ts
-describe('CoinGecko API', () => {
-  it('should fetch exchanges list', async () => {
-    const exchanges = await fetchExchanges();
-    expect(Array.isArray(exchanges)).toBe(true);
-    expect(exchanges.length).toBeGreaterThan(0);
-  });
-  
-  it('should handle rate limiting', async () => {
-    // Test rate limiter behavior
-  });
-  
-  it('should use cached data when available', async () => {
-    // Test caching mechanism
-  });
-});
-```
+**Remember: Aggressive caching is essential to stay within free tier limits while providing real-time-feeling data.**

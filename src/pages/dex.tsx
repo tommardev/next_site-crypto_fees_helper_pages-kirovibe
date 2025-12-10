@@ -8,7 +8,7 @@ import { useDEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
 
 export default function DEXPage() {
-  const { fees, isLoading, isError, cachedAt, isCached } = useDEXFees();
+  const { dexes, isLoading, isError, cachedAt, isCached } = useDEXFees();
   
   const {
     searchQuery,
@@ -20,7 +20,7 @@ export default function DEXPage() {
     hasMore,
     loadMore,
     reset,
-  } = useDEXFilters(fees);
+  } = useDEXFilters(dexes);
 
   return (
     <Layout>

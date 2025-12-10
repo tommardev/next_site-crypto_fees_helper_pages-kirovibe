@@ -8,7 +8,7 @@ import { useCEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
 
 export default function HomePage() {
-  const { fees, isLoading, isError, cachedAt, isCached } = useExchangeFees();
+  const { exchanges, isLoading, isError, cachedAt, isCached } = useExchangeFees();
   
   const {
     searchQuery,
@@ -20,7 +20,7 @@ export default function HomePage() {
     hasMore,
     loadMore,
     reset,
-  } = useCEXFilters(fees);
+  } = useCEXFilters(exchanges);
 
   return (
     <Layout>

@@ -26,7 +26,7 @@ export function DEXGrid({
     );
   }
 
-  if (dexes.length === 0) {
+  if (!dexes || dexes.length === 0) {
     return (
       <Box textAlign="center" py={10}>
         <Text fontSize="lg" color="gray.500">

@@ -26,7 +26,7 @@ export function ExchangeGrid({
     );
   }
 
-  if (exchanges.length === 0) {
+  if (!exchanges || exchanges.length === 0) {
     return (
       <Box textAlign="center" py={10}>
         <Text fontSize="lg" color="gray.500">

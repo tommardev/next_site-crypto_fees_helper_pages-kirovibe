@@ -3,8 +3,8 @@ export interface CEXFees {
   exchangeId: string;
   exchangeName: string;
   logo: string;
-  makerFee: number;        // Percentage (e.g., 0.1 for 0.1%)
-  takerFee: number;        // Percentage
+  makerFee: number | null;        // Percentage (e.g., 0.1 for 0.1%) - null when data not available
+  takerFee: number | null;        // Percentage - null when data not available
   withdrawalFees: {
     [coin: string]: number; // Absolute amount
   };
@@ -26,7 +26,7 @@ export interface DEXFees {
   logo: string;
   protocol: 'AMM' | 'Order Book' | 'Aggregator';
   blockchain: string[];    // ['Ethereum', 'BSC', 'Polygon']
-  swapFee: number;         // Percentage
+  swapFee: number | null;  // Percentage - null when data not available
   gasFeeEstimate: {
     [blockchain: string]: {
       low: number;         // USD

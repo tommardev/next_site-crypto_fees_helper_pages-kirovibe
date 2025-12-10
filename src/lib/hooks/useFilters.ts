@@ -14,16 +14,28 @@ export function useCEXFilters(exchanges: CEXFees[] | undefined) {
       exchange.exchangeName.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Sort
+    // Sort (handle null values properly for real-data-only policy)
     switch (sortBy) {
       case 'name':
         filtered.sort((a, b) => a.exchangeName.localeCompare(b.exchangeName));
         break;
       case 'makerFee':
-        filtered.sort((a, b) => a.makerFee - b.makerFee);
+        filtered.sort((a, b) => {
+          // Handle null values - put nulls at end
+          if (a.makerFee === null && b.makerFee === null) return 0;
+          if (a.makerFee === null) return 1;
+          if (b.makerFee === null) return -1;
+          return a.makerFee - b.makerFee;
+        });
         break;
       case 'takerFee':
-        filtered.sort((a, b) => a.takerFee - b.takerFee);
+        filtered.sort((a, b) => {
+          // Handle null values - put nulls at end
+          if (a.takerFee === null && b.takerFee === null) return 0;
+          if (a.takerFee === null) return 1;
+          if (b.takerFee === null) return -1;
+          return a.takerFee - b.takerFee;
+        });
         break;
       case 'volume':
         filtered.sort((a, b) => b.volume24h - a.volume24h);
@@ -82,13 +94,19 @@ export function useDEXFilters(dexes: DEXFees[] | undefined) {
       dex.dexName.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    // Sort
+    // Sort (handle null values properly for real-data-only policy)
     switch (sortBy) {
       case 'name':
         filtered.sort((a, b) => a.dexName.localeCompare(b.dexName));
         break;
       case 'swapFee':
-        filtered.sort((a, b) => a.swapFee - b.swapFee);
+        filtered.sort((a, b) => {
+          // Handle null values - put nulls at end
+          if (a.swapFee === null && b.swapFee === null) return 0;
+          if (a.swapFee === null) return 1;
+          if (b.swapFee === null) return -1;
+          return a.swapFee - b.swapFee;
+        });
         break;
       case 'volume':
         filtered.sort((a, b) => b.volume24h - a.volume24h);
