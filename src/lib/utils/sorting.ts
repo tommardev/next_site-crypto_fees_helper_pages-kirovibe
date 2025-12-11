@@ -7,9 +7,21 @@ export function sortCEXExchanges(exchanges: CEXFees[], sortBy: SortOption): CEXF
     case 'name':
       return sorted.sort((a, b) => a.exchangeName.localeCompare(b.exchangeName));
     case 'makerFee':
-      return sorted.sort((a, b) => a.makerFee - b.makerFee);
+      return sorted.sort((a, b) => {
+        // Handle null values - put null values at the end
+        if (a.makerFee === null && b.makerFee === null) return 0;
+        if (a.makerFee === null) return 1;
+        if (b.makerFee === null) return -1;
+        return a.makerFee - b.makerFee;
+      });
     case 'takerFee':
-      return sorted.sort((a, b) => a.takerFee - b.takerFee);
+      return sorted.sort((a, b) => {
+        // Handle null values - put null values at the end
+        if (a.takerFee === null && b.takerFee === null) return 0;
+        if (a.takerFee === null) return 1;
+        if (b.takerFee === null) return -1;
+        return a.takerFee - b.takerFee;
+      });
     case 'volume':
       return sorted.sort((a, b) => b.volume24h - a.volume24h);
     case 'trustScore':
@@ -30,7 +42,13 @@ export function sortDEXExchanges(
     case 'name':
       return sorted.sort((a, b) => a.dexName.localeCompare(b.dexName));
     case 'swapFee':
-      return sorted.sort((a, b) => a.swapFee - b.swapFee);
+      return sorted.sort((a, b) => {
+        // Handle null values - put null values at the end
+        if (a.swapFee === null && b.swapFee === null) return 0;
+        if (a.swapFee === null) return 1;
+        if (b.swapFee === null) return -1;
+        return a.swapFee - b.swapFee;
+      });
     case 'volume':
       return sorted.sort((a, b) => b.volume24h - a.volume24h);
     case 'liquidity':

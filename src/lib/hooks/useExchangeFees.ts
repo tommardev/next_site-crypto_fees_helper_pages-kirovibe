@@ -1,12 +1,17 @@
 import useSWR from 'swr';
 import { CEXFees } from '@/lib/types/exchange';
 
+// SWR fetcher function
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
 /**
  * Hook to fetch CEX exchange fees using real API data
  * Implements 24-hour caching as per real-data-only policy
  */
 export function useExchangeFees() {
-  const { data, error, isLoading } = useSWR('/api/cex-fees', {
+  const { data, error, isLoading } = useSWR('/api/cex-fees', fetcher, {
+    revalidateOnFocus: false,
+    revalidateOnReconnect: false,
     refreshInterval: 24 * 60 * 60 * 1000, // 24 hours - matches API cache
     dedupingInterval: 60000, // 1 minute
   });
