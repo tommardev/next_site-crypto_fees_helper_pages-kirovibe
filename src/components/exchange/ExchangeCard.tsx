@@ -55,7 +55,7 @@ export function ExchangeCard({ exchange, rank }: ExchangeCardProps) {
             alt={exchange.exchangeName}
             boxSize="48px"
             objectFit="contain"
-            fallbackSrc="/logos/default.png"
+            fallbackSrc="/logos/default.svg"
           />
         </VStack>
 

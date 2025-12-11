@@ -51,8 +51,8 @@ export function DEXFilters({
           value={sortBy}
           onChange={(e) => onSortChange(e.target.value as any)}
         >
-          <option value="volume">Volume (High to Low)</option>
           <option value="liquidity">Liquidity (High to Low)</option>
+          <option value="volume">Volume (High to Low)</option>
           <option value="name">Name (A-Z)</option>
           <option value="swapFee">Swap Fee (Low to High)</option>
         </Select>

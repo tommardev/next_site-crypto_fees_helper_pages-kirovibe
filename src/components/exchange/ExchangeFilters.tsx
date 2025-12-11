@@ -52,12 +52,11 @@ export function ExchangeFilters({
           value={sortBy}
           onChange={(e) => onSortChange(e.target.value as SortOption)}
         >
-          <option value="rank">Rank</option>
+          <option value="trustScore">Trust Score (High to Low)</option>
           <option value="name">Name (A-Z)</option>
           <option value="makerFee">Maker Fee (Low to High)</option>
           <option value="takerFee">Taker Fee (Low to High)</option>
           <option value="volume">Volume (High to Low)</option>
-          <option value="trustScore">Trust Score (High to Low)</option>
         </Select>
 
         <Button variant="outline" onClick={onReset}>
