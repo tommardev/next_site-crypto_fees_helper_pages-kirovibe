@@ -38,20 +38,20 @@ export function DEXCard({ dex, rank }: DEXCardProps) {
 
   return (
     <MotionBox
-      as="a"
-      href={dex.url}
-      target="_blank"
-      rel="noopener noreferrer"
+      as={dex.url ? "a" : "div"}
+      href={dex.url || undefined}
+      target={dex.url ? "_blank" : undefined}
+      rel={dex.url ? "noopener noreferrer" : undefined}
       bg={bgColor}
       borderWidth="1px"
       borderColor={borderColor}
       borderRadius="lg"
       p={4}
-      cursor="pointer"
+      cursor={dex.url ? "pointer" : "default"}
       transition="all 0.2s"
-      whileHover={{ scale: 1.02 }}
-      whileTap={{ scale: 0.98 }}
-      _hover={{ bg: hoverBg, shadow: 'md' }}
+      whileHover={dex.url ? { scale: 1.02 } : {}}
+      whileTap={dex.url ? { scale: 0.98 } : {}}
+      _hover={dex.url ? { bg: hoverBg, shadow: 'md' } : {}}
     >
       <Flex gap={4}>
         {/* Logo & Rank */}
@@ -66,7 +66,7 @@ export function DEXCard({ dex, rank }: DEXCardProps) {
             alt={dex.dexName}
             boxSize="48px"
             objectFit="contain"
-            fallbackSrc="/logos/default.png"
+            fallbackSrc="/logos/default.svg"
           />
         </VStack>
 
@@ -90,15 +90,13 @@ export function DEXCard({ dex, rank }: DEXCardProps) {
               </Text>
             </Tooltip>
             
-            {dex.liquidityUSD > 0 && (
-              <Tooltip label="Total Value Locked" hasArrow>
-                <Text fontSize="xs">
-                  TVL: <Text as="span" fontWeight="semibold" color="blue.500">
-                    {formatUSD(dex.liquidityUSD)}
-                  </Text>
+            <Tooltip label="Total Value Locked (Liquidity)" hasArrow>
+              <Text fontSize="xs">
+                TVL: <Text as="span" fontWeight="semibold" color="blue.500">
+                  {dex.liquidityUSD > 0 ? formatUSD(dex.liquidityUSD) : 'N/A'}
                 </Text>
-              </Tooltip>
-            )}
+              </Text>
+            </Tooltip>
           </HStack>
 
           <HStack spacing={2} flexWrap="wrap">

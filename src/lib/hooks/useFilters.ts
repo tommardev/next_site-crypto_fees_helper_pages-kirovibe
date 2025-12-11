@@ -3,7 +3,7 @@ import { CEXFees, DEXFees, SortOption } from '@/lib/types/exchange';
 
 export function useCEXFilters(exchanges: CEXFees[] | undefined) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<SortOption>('rank');
+  const [sortBy, setSortBy] = useState<SortOption>('trustScore');
   const [showCount, setShowCount] = useState(20);
 
   const filteredAndSorted = useMemo(() => {
@@ -43,9 +43,9 @@ export function useCEXFilters(exchanges: CEXFees[] | undefined) {
       case 'trustScore':
         filtered.sort((a, b) => b.trustScore - a.trustScore);
         break;
-      case 'rank':
+      case 'trustScore':
       default:
-        // Keep original order (already sorted by rank from API)
+        filtered.sort((a, b) => b.trustScore - a.trustScore);
         break;
     }
 
@@ -60,7 +60,7 @@ export function useCEXFilters(exchanges: CEXFees[] | undefined) {
 
   const reset = () => {
     setSearchQuery('');
-    setSortBy('rank');
+    setSortBy('trustScore');
     setShowCount(20);
   };
 
@@ -83,7 +83,7 @@ export function useCEXFilters(exchanges: CEXFees[] | undefined) {
 
 export function useDEXFilters(dexes: DEXFees[] | undefined) {
   const [searchQuery, setSearchQuery] = useState('');
-  const [sortBy, setSortBy] = useState<'name' | 'swapFee' | 'volume' | 'liquidity'>('volume');
+  const [sortBy, setSortBy] = useState<'name' | 'swapFee' | 'volume' | 'liquidity'>('liquidity');
   const [showCount, setShowCount] = useState(20);
 
   const filteredAndSorted = useMemo(() => {
@@ -129,7 +129,7 @@ export function useDEXFilters(dexes: DEXFees[] | undefined) {
 
   const reset = () => {
     setSearchQuery('');
-    setSortBy('volume');
+    setSortBy('liquidity');
     setShowCount(20);
   };
 

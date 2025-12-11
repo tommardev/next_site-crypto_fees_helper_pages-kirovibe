@@ -346,29 +346,56 @@ export async function fetchDEXDetails(dexIds: string[]): Promise<any[]> {
  */
 export async function fetchCombinedDEXData(): Promise<any[]> {
   try {
-    // Use DeFiLlama DEX API for real DEX data
-    const response = await fetch('https://api.llama.fi/overview/dexs');
+    // Fetch both DEX overview and TVL data
+    const [dexResponse, tvlResponse] = await Promise.allSettled([
+      fetch('https://api.llama.fi/overview/dexs'),
+      fetch('https://api.llama.fi/protocols')
+    ]);
     
-    if (!response.ok) {
-      throw new Error(`DeFiLlama API error: ${response.status} ${response.statusText}`);
+    let dexData: any[] = [];
+    let tvlData: any[] = [];
+    
+    if (dexResponse.status === 'fulfilled' && dexResponse.value.ok) {
+      const data = await dexResponse.value.json();
+      dexData = data.protocols || [];
     }
     
-    const data = await response.json();
+    if (tvlResponse.status === 'fulfilled' && tvlResponse.value.ok) {
+      const data = await tvlResponse.value.json();
+      tvlData = data || [];
+    }
     
-    // Return top DEXes with real volume data
-    return data.protocols?.slice(0, 20).map((dex: any) => ({
-      id: dex.name?.toLowerCase().replace(/\s+/g, '-') || '',
-      name: dex.name || 'Unknown DEX',
-      // Use real data from DeFiLlama API
-      volume24h: dex.total24h || 0,
-      volume7d: dex.total7d || 0,
-      change_1d: dex.change_1d || 0,
-      chains: dex.chains || [],
-      // Placeholder fields for missing data
-      centralized: false, // DeFiLlama only tracks DEXes
-      url: '', // Will be populated from other sources if needed
-      image: '', // Will be populated from other sources if needed
-    })) || [];
+    // Create TVL lookup map with logo data
+    const tvlMap = new Map();
+    tvlData.forEach((protocol: any) => {
+      if (protocol.category === 'Dexes' || protocol.name) {
+        tvlMap.set(protocol.name.toLowerCase(), {
+          tvl: protocol.tvl || 0,
+          logo: protocol.logo || '', // Real logo from DeFiLlama
+          url: protocol.url || '', // Real URL from DeFiLlama
+        });
+      }
+    });
+    
+    // Return top 50 DEXes with real volume, liquidity, and logo data
+    return dexData.slice(0, 50).map((dex: any) => {
+      const tvlInfo = tvlMap.get(dex.name?.toLowerCase()) || {};
+      
+      return {
+        id: dex.name?.toLowerCase().replace(/\s+/g, '-') || '',
+        name: dex.name || 'Unknown DEX',
+        // Use real data from DeFiLlama API
+        volume24h: dex.total24h || 0,
+        volume7d: dex.total7d || 0,
+        change_1d: dex.change_1d || 0,
+        chains: dex.chains || [],
+        // Add real data from TVL API
+        liquidityUSD: tvlInfo.tvl || 0,
+        image: tvlInfo.logo || '', // Real logo from DeFiLlama protocols API
+        url: tvlInfo.url || '', // Real URL from DeFiLlama protocols API
+        centralized: false, // DeFiLlama only tracks DEXes
+      };
+    }) || [];
     
   } catch (error) {
     console.error('Error fetching DEX data from DeFiLlama:', error);

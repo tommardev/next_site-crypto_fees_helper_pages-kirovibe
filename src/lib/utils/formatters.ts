@@ -4,11 +4,22 @@ export function formatFee(fee: number | null): string {
   return `${fee.toFixed(2)}%`;
 }
 
-// Format volume in BTC
+// Format volume - handles both USD and BTC based on magnitude
 export function formatVolume(volume: number): string {
-  if (volume >= 1000000) {
-    return `${(volume / 1000000).toFixed(2)}M BTC`;
+  if (volume === 0) return 'N/A';
+  
+  // Large volumes are likely USD (spot_volume_usd from CMC)
+  if (volume >= 10000000) { // > 10M likely USD
+    if (volume >= 1000000000) {
+      return `$${(volume / 1000000000).toFixed(2)}B`;
+    }
+    if (volume >= 1000000) {
+      return `$${(volume / 1000000).toFixed(2)}M`;
+    }
+    return `$${(volume / 1000).toFixed(2)}K`;
   }
+  
+  // Smaller volumes are likely BTC (trade_volume_24h_btc from CoinGecko)
   if (volume >= 1000) {
     return `${(volume / 1000).toFixed(2)}K BTC`;
   }
