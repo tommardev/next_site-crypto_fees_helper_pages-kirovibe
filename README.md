@@ -4,7 +4,8 @@ Compare trading fees across centralized (CEX) and decentralized (DEX) cryptocurr
 
 ## Features
 
-- 🔄 **Real-time Data** - Fetches live exchange data from CoinGecko API
+- 🤖 **AI-Powered Fee Data** - Uses Google Gemini AI to collect real trading fees
+- 🔄 **Real-time Data** - Fetches live exchange data from multiple APIs
 - 💰 **CEX & DEX Support** - Compare both centralized and decentralized exchanges
 - 🎨 **Modern UI** - Beautiful, responsive design with dark mode support
 - ⚡ **Fast Performance** - 24-hour caching for optimal speed
@@ -40,22 +41,31 @@ cd cryptofees
 npm install
 ```
 
-3. Create environment file and add your CoinMarketCap API key:
+3. Create environment file and add your API keys:
 ```bash
 cp .env.local.example .env.local
 ```
 
-Edit `.env.local` and add your API key:
+Edit `.env.local` and add your API keys:
 ```env
-COINMARKETCAP_API_KEY=your_api_key_here
+COINMARKETCAP_API_KEY=your_coinmarketcap_key_here
+GEMINI_API_KEY=your_gemini_key_here
 ```
 
-**Get your FREE API key**:
+**Get your FREE API keys**:
+
+**CoinMarketCap** (required for exchange metadata):
 1. Go to https://pro.coinmarketcap.com/signup
 2. Sign up (free Basic plan)
 3. Verify your email
 4. Copy your API key from the dashboard
-5. Paste it in `.env.local`
+
+**Google Gemini** (required for AI-powered fee data):
+1. Go to https://aistudio.google.com/
+2. Sign in with your Google account
+3. Click "Get API Key"
+4. Create a new API key
+5. Copy the API key
 
 4. Run the development server:
 ```bash
@@ -96,9 +106,10 @@ Both routes implement 24-hour caching to minimize API calls and improve performa
 
 ## Data Sources
 
-- **CoinMarketCap API** - PRIMARY source for CEX data with REAL maker/taker fees (requires free API key)
+- **Google Gemini AI** - AI-powered real fee data collection for both CEX and DEX
+- **CoinMarketCap API** - Exchange rankings, volumes, and metadata (requires free API key)
 - **CoinGecko API** - Supplementary data for trust scores and metadata (free tier, no key required)
-- **The Graph Protocol** - DEX data (Uniswap, PancakeSwap, etc.)
+- **DeFiLlama API** - DEX liquidity and volume data
 
 ## Deployment
 
@@ -149,13 +160,16 @@ npm run build
 Required and optional environment variables (see `.env.local.example`):
 
 ### Required
-- `COINMARKETCAP_API_KEY` - **REQUIRED** for real exchange fee data
+- `COINMARKETCAP_API_KEY` - **REQUIRED** for exchange metadata and rankings
   - Get free API key at: https://pro.coinmarketcap.com/signup
   - Free tier: 333 calls/day (perfect with 24-hour caching)
+- `GEMINI_API_KEY` - **REQUIRED** for AI-powered fee data collection
+  - Get free API key at: https://aistudio.google.com/
+  - Free tier: 15 requests/minute, 1,500 requests/day
 
 ### Optional
 - `NEXT_PUBLIC_SITE_URL` - Your site URL
-- `NEXT_PUBLIC_COINGECKO_API_KEY` - CoinGecko API key for supplementary data
+- `COINGECKO_API_KEY` - CoinGecko API key for higher rate limits
 
 ## Contributing
 

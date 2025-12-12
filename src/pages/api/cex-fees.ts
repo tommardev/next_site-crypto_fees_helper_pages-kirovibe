@@ -3,6 +3,7 @@ import { fetchCombinedExchangeData } from '@/lib/api/coinmarketcap';
 import { normalizeCombinedExchangeData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
 import { CACHE_DURATION } from '@/config/constants';
+import { fetchCEXFeesFromAI, mergeCEXFeeData } from '@/lib/api/gemini';
 
 /**
  * CEX Fees API Route
@@ -10,9 +11,13 @@ import { CACHE_DURATION } from '@/config/constants';
  * DATA STRATEGY:
  * - CoinMarketCap: Exchange rankings, volumes, basic metadata (CMC fee data is unreliable)
  * - CoinGecko: Trust scores, additional metadata
- * - Fee Data: Currently using placeholders (null values) until dedicated fee sources are integrated
+ * - Gemini AI: Real fee data collection using AI-powered analysis
  * 
- * FUTURE: Will integrate dedicated fee data sources while keeping CMC/CoinGecko for rankings and metadata
+ * FLOW:
+ * 1. Fetch exchange metadata from CMC/CoinGecko
+ * 2. Use Gemini AI to collect real fee data for those exchanges
+ * 3. Merge AI fee data with exchange metadata
+ * 4. Cache for 24 hours to respect API limits
  */
 
 // In-memory cache for development
@@ -45,15 +50,33 @@ export default async function handler(
     }
 
     // Fetch combined data from CMC (volumes, rankings) + CoinGecko (trust scores)
-    // NOTE: CMC fee data is unreliable, so we use placeholders for now
     const rawData = await fetchCombinedExchangeData(100);
     
     // Normalize data with placeholder fee values
     const normalizedData = rawData.map(normalizeCombinedExchangeData);
 
+    // Use Gemini AI to collect real fee data for these exchanges
+    let finalData = normalizedData;
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        console.log(`Fetching AI fee data for ${normalizedData.length} exchanges...`);
+        const aiFeesData = await fetchCEXFeesFromAI(normalizedData);
+        
+        if (aiFeesData.length > 0) {
+          finalData = mergeCEXFeeData(normalizedData, aiFeesData);
+          console.log(`Successfully merged AI fee data for ${aiFeesData.length} exchanges`);
+        }
+      } catch (aiError) {
+        console.error('AI fee collection failed, using placeholder data:', aiError);
+        // Continue with placeholder data if AI fails
+      }
+    } else {
+      console.warn('GEMINI_API_KEY not configured, using placeholder fee data');
+    }
+
     // Update cache
     cache = {
-      data: normalizedData,
+      data: finalData,
       timestamp: Date.now(),
     };
 
@@ -64,7 +87,7 @@ export default async function handler(
     );
 
     return res.status(200).json({
-      data: normalizedData,
+      data: finalData,
       cached: false,
       cachedAt: new Date().toISOString(),
     });
