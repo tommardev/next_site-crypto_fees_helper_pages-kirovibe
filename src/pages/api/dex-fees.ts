@@ -3,14 +3,22 @@ import { normalizeDEXData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
 import { CACHE_DURATION } from '@/config/constants';
 import { fetchCombinedDEXData } from '@/lib/api/coinmarketcap';
+import { fetchDEXFeesFromAI, mergeDEXFeeData } from '@/lib/api/gemini';
 
 /**
  * DEX Fees API Route
  * 
  * DATA STRATEGY:
  * - CoinGecko: DEX listings, volumes, basic metadata
+ * - Gemini AI: Real swap fees and gas estimates using AI-powered analysis
  * - Real API data only - no hardcoded lists
  * - Graceful degradation if APIs fail (empty array)
+ * 
+ * FLOW:
+ * 1. Fetch DEX metadata from CoinGecko/DeFiLlama
+ * 2. Use Gemini AI to collect real fee data for those DEXes
+ * 3. Merge AI fee data with DEX metadata
+ * 4. Cache for 24 hours to respect API limits
  */
 
 // In-memory cache
@@ -40,9 +48,28 @@ export default async function handler(
     // Normalize DEX data (will be empty array if APIs fail)
     const normalizedData = rawDEXData.map(normalizeDEXData);
 
+    // Use Gemini AI to collect real fee data for these DEXes
+    let finalData = normalizedData;
+    if (process.env.GEMINI_API_KEY && normalizedData.length > 0) {
+      try {
+        console.log(`Fetching AI fee data for ${normalizedData.length} DEXes...`);
+        const aiFeesData = await fetchDEXFeesFromAI(normalizedData);
+        
+        if (aiFeesData.length > 0) {
+          finalData = mergeDEXFeeData(normalizedData, aiFeesData);
+          console.log(`Successfully merged AI fee data for ${aiFeesData.length} DEXes`);
+        }
+      } catch (aiError) {
+        console.error('AI fee collection failed, using placeholder data:', aiError);
+        // Continue with placeholder data if AI fails
+      }
+    } else if (!process.env.GEMINI_API_KEY) {
+      console.warn('GEMINI_API_KEY not configured, using placeholder fee data');
+    }
+
     // Update cache
     cache = {
-      data: normalizedData,
+      data: finalData,
       timestamp: Date.now(),
     };
 
@@ -53,7 +80,7 @@ export default async function handler(
     );
 
     return res.status(200).json({
-      data: normalizedData,
+      data: finalData,
       cached: false,
       cachedAt: new Date().toISOString(),
     });
