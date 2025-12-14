@@ -31,13 +31,24 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  const { batch = '1', batchSize = '8' } = req.query;
+  const batchNum = parseInt(batch as string, 10);
+  const size = parseInt(batchSize as string, 10);
+
   try {
-    // Check cache
+    // Check cache for complete data
     if (cache && Date.now() - cache.timestamp < CACHE_DURATION) {
+      const startIndex = (batchNum - 1) * size;
+      const endIndex = startIndex + size;
+      const batchData = cache.data.slice(startIndex, endIndex);
+      
       return res.status(200).json({
-        data: cache.data,
+        data: batchData,
         cached: true,
         cachedAt: new Date(cache.timestamp).toISOString(),
+        batch: batchNum,
+        totalBatches: Math.ceil(cache.data.length / size),
+        hasMore: endIndex < cache.data.length,
       });
     }
 
@@ -55,41 +66,55 @@ export default async function handler(
     // Normalize data with placeholder fee values
     const normalizedData = rawData.map(normalizeCombinedExchangeData);
 
-    // Use Gemini AI to collect real fee data for these exchanges
-    let finalData = normalizedData;
-    if (process.env.GEMINI_API_KEY) {
+    // Calculate batch indices
+    const startIndex = (batchNum - 1) * size;
+    const endIndex = startIndex + size;
+    const batchExchanges = normalizedData.slice(startIndex, endIndex);
+
+    // Use Gemini AI to collect real fee data for this batch only
+    let finalBatchData = batchExchanges;
+    if (process.env.GEMINI_API_KEY && batchExchanges.length > 0) {
       try {
-        console.log(`Fetching AI fee data for ${normalizedData.length} exchanges...`);
-        const aiFeesData = await fetchCEXFeesFromAI(normalizedData);
+        console.log(`Fetching AI fee data for batch ${batchNum} (${batchExchanges.length} exchanges)...`);
+        const aiFeesData = await fetchCEXFeesFromAI(batchExchanges);
         
         if (aiFeesData.length > 0) {
-          finalData = mergeCEXFeeData(normalizedData, aiFeesData);
-          console.log(`Successfully merged AI fee data for ${aiFeesData.length} exchanges`);
+          finalBatchData = mergeCEXFeeData(batchExchanges, aiFeesData);
+          console.log(`Successfully merged AI fee data for ${aiFeesData.length} exchanges in batch ${batchNum}`);
         }
       } catch (aiError) {
-        console.error('AI fee collection failed, using placeholder data:', aiError);
+        console.error(`AI fee collection failed for batch ${batchNum}, using placeholder data:`, aiError);
         // Continue with placeholder data if AI fails
       }
-    } else {
+    } else if (!process.env.GEMINI_API_KEY) {
       console.warn('GEMINI_API_KEY not configured, using placeholder fee data');
     }
 
-    // Update cache
-    cache = {
-      data: finalData,
-      timestamp: Date.now(),
-    };
+    // Update cache with complete data if this is batch 1
+    if (batchNum === 1) {
+      cache = {
+        data: normalizedData, // Store complete normalized data for future batches
+        timestamp: Date.now(),
+      };
+    }
 
     // Set cache headers for CDN/browser caching
     res.setHeader(
       'Cache-Control',
-      'public, s-maxage=86400, stale-while-revalidate=172800'
+      'public, s-maxage=3600, stale-while-revalidate=7200' // Shorter cache for batches
     );
 
+    const totalBatches = Math.ceil(normalizedData.length / size);
+    const hasMore = endIndex < normalizedData.length;
+
     return res.status(200).json({
-      data: finalData,
+      data: finalBatchData,
       cached: false,
       cachedAt: new Date().toISOString(),
+      batch: batchNum,
+      totalBatches,
+      hasMore,
+      totalExchanges: normalizedData.length,
     });
   } catch (error) {
     console.error('CEX Fees API Error:', error);

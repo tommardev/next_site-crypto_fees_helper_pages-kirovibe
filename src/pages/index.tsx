@@ -8,7 +8,18 @@ import { useCEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
 
 export default function HomePage() {
-  const { exchanges, isLoading, isError, cachedAt, isCached } = useExchangeFees();
+  const { 
+    exchanges, 
+    isLoading, 
+    isError, 
+    isLoadingMore,
+    hasMore: hasMoreBatches,
+    loadMore: loadMoreBatches,
+    cachedAt, 
+    isCached,
+    currentBatch,
+    totalBatches
+  } = useExchangeFees();
   
   const {
     searchQuery,
@@ -17,10 +28,14 @@ export default function HomePage() {
     setSortBy,
     displayedExchanges,
     totalCount,
-    hasMore,
-    loadMore,
+    hasMore: hasMoreFiltered,
+    loadMore: loadMoreFiltered,
     reset,
   } = useCEXFilters(exchanges);
+
+  // Determine which load more function to use
+  const shouldShowLoadMore = hasMoreFiltered || hasMoreBatches;
+  const handleLoadMore = hasMoreFiltered ? loadMoreFiltered : loadMoreBatches;
 
   return (
     <Layout>
@@ -39,9 +54,14 @@ export default function HomePage() {
                 {isCached ? 'Cached' : 'Fresh'} • Updated {formatRelativeTime(cachedAt)}
               </Badge>
             )}
+            {currentBatch && totalBatches && (
+              <Badge colorScheme="blue" fontSize="xs">
+                Batch {currentBatch}/{totalBatches}
+              </Badge>
+            )}
           </HStack>
           <Text fontSize="sm" color="gray.500" mt={2}>
-            💡 Tip: Lower fees mean more profit on your trades. Check DEX fees for decentralized options.
+            💡 Tip: Lower fees mean more profit on your trades. Exchanges load progressively with AI-powered fee data.
           </Text>
         </Box>
 
@@ -54,7 +74,7 @@ export default function HomePage() {
         )}
 
         {/* Filters */}
-        {!isError && (
+        {!isError && exchanges && exchanges.length > 0 && (
           <ExchangeFilters
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -70,8 +90,11 @@ export default function HomePage() {
         <ExchangeGrid
           exchanges={displayedExchanges}
           isLoading={isLoading}
-          hasMore={hasMore}
-          onLoadMore={loadMore}
+          isLoadingMore={isLoadingMore}
+          hasMore={shouldShowLoadMore}
+          onLoadMore={handleLoadMore}
+          currentBatch={currentBatch}
+          totalBatches={totalBatches}
         />
       </VStack>
     </Layout>
