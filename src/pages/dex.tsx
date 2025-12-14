@@ -3,12 +3,23 @@ import { Layout } from '@/components/layout/Layout';
 import { DEXGrid } from '@/components/exchange/DEXGrid';
 import { DEXFilters } from '@/components/exchange/DEXFilters';
 import { ErrorAlert } from '@/components/common/ErrorAlert';
-import { useDEXFees } from '@/lib/hooks/useDEXFees';
+import { useDEXFees } from '@/lib/hooks/useExchangeFees';
 import { useDEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
 
 export default function DEXPage() {
-  const { dexes, isLoading, isError, cachedAt, isCached } = useDEXFees();
+  const { 
+    dexes, 
+    isLoading, 
+    isError, 
+    isLoadingMore,
+    hasMore: hasMoreBatches,
+    loadMore: loadMoreBatches,
+    cachedAt, 
+    isCached,
+    currentBatch,
+    totalBatches
+  } = useDEXFees();
   
   const {
     searchQuery,
@@ -17,10 +28,14 @@ export default function DEXPage() {
     setSortBy,
     displayedDEXes,
     totalCount,
-    hasMore,
-    loadMore,
+    hasMore: hasMoreFiltered,
+    loadMore: loadMoreFiltered,
     reset,
   } = useDEXFilters(dexes);
+
+  // Determine which load more function to use
+  const shouldShowLoadMore = hasMoreFiltered || hasMoreBatches;
+  const handleLoadMore = hasMoreFiltered ? loadMoreFiltered : loadMoreBatches;
 
   return (
     <Layout>
@@ -39,9 +54,14 @@ export default function DEXPage() {
                 {isCached ? 'Cached' : 'Fresh'} • Updated {formatRelativeTime(cachedAt)}
               </Badge>
             )}
+            {currentBatch && totalBatches && (
+              <Badge colorScheme="purple" fontSize="xs">
+                Batch {currentBatch}/{totalBatches}
+              </Badge>
+            )}
           </HStack>
           <Text fontSize="sm" color="gray.500" mt={2}>
-            💡 Tip: DEX fees include swap fees + gas fees. Consider using Layer 2 solutions for lower costs.
+            💡 Tip: DEX fees include swap fees + gas fees. DEXes load progressively with AI-powered fee data.
           </Text>
         </Box>
 
@@ -54,7 +74,7 @@ export default function DEXPage() {
         )}
 
         {/* Filters */}
-        {!isError && (
+        {!isError && dexes && dexes.length > 0 && (
           <DEXFilters
             searchQuery={searchQuery}
             onSearchChange={setSearchQuery}
@@ -70,8 +90,11 @@ export default function DEXPage() {
         <DEXGrid
           dexes={displayedDEXes}
           isLoading={isLoading}
-          hasMore={hasMore}
-          onLoadMore={loadMore}
+          isLoadingMore={isLoadingMore}
+          hasMore={shouldShowLoadMore}
+          onLoadMore={handleLoadMore}
+          currentBatch={currentBatch}
+          totalBatches={totalBatches}
         />
       </VStack>
     </Layout>
