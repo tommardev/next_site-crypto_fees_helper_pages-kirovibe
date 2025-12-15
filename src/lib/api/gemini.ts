@@ -31,6 +31,7 @@ interface DEXFeeData {
 /**
  * Generate dynamic prompt for CEX fee data collection
  */
+//DO NOT REMOVE. Leave this function for reference of later review
 function generateCEXPrompt_Kiro(exchanges: CEXFees[]): string {
   const exchangeList = exchanges.map(ex => `- ${ex.exchangeName} (ID: ${ex.exchangeId})`).join('\n');
   
@@ -68,38 +69,26 @@ Return only the JSON array, no additional text or explanation.`;
 }
 
 function generateCEXPrompt(exchanges: CEXFees[]): string {
-  const exchangeList = exchanges.map(ex => `| ${ex.exchangeId} | **${ex.exchangeName}** | null | null | `).join('\n');
+  const exchangeList = exchanges.map(ex => `| ${ex.exchangeId} | **${ex.exchangeName}** | `).join('\n');
   
-  return `You are an expert crypto data analyst. Your task is to **validate and update** the base level or tier spot trading maker and taker fees for the exchanges listed below.
-
-**Instructions:**
-
-1.  **Retrieve** the current, *lowest-tier* or *lowest-level* spot trading maker and taker fees (as a percentage) from the official fee page for each exchange.
-2.  **Format** the verified data into the specified JSON structure.
-3.  **Update** the maker_fee_percent, taker_fee_percent, base_volume_tier_note, and crucially, set the updated_time to the current date and time in ISO 8601 format (YYYY-MM-DDTHH:MM:SSZ).
-4.  **Do not** include any conversational text, explanations, or code-block formatting (e.g., no \`\`\`json). **Only** output the array of JSON objects. If you cannot find a fee, use -1 for the percentage fields and add a note in base_volume_tier_note.
+  return `**Find and Retrieve** the current, *lowest-tier* or *lowest-level* specificaly SPOT TRADING maker and taker fees (as a percentage, e.g., 0.1 for 0.1%) from the official SPOT TRADING fee page for each exchange listed below search only by identical "Exchange Name" provided.
+**Format** the verified data into the specified JSON structure and Return only the JSON array, no additional text or explanation.
 
  **List of Exchanges to Check:**
-| Exchange ID | Exchange Name | Current Maker Fee (%) | Current Taker Fee (%) |
+| Exchange ID | Exchange Name |
  ${exchangeList}
-
 
 **Required Output Schema (return this data in JSON array format):**
 [
   {
     "exchangeId": "string (use the ID provided above)",
     "exchange_name": "Binance",
-    "exchangeId": "string (use the ID provided above)",
     "makerFee": number | null (percentage, e.g., 0.1 for 0.1%),
-    "takerFee": number | null (percentage, e.g., 0.1 for 0.1%),
-    "base_volume_tier_note": /* brief description of the lowest volume tier */,
-    "discount_note": /* brief discounts description */,
-    "updated_time": "YYYY-MM-DDTHH:MM:SSZ" 
+    "takerFee": number | null (percentage, e.g., 0.1 for 0.1%)
   },
   // ... continue for all listed exchanges
 ]
-
-Return only the JSON array, no additional text or explanation.`;
+`;
 }
 
 /**

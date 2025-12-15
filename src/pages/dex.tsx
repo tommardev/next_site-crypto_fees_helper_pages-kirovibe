@@ -12,13 +12,12 @@ export default function DEXPage() {
     dexes, 
     isLoading, 
     isError, 
-    isLoadingMore,
-    hasMore: hasMoreBatches,
-    loadMore: loadMoreBatches,
+    backgroundLoading,
     cachedAt, 
     isCached,
-    currentBatch,
-    totalBatches
+    totalBatches,
+    loadedBatches,
+    progress
   } = useDEXFees();
   
   const {
@@ -28,14 +27,10 @@ export default function DEXPage() {
     setSortBy,
     displayedDEXes,
     totalCount,
-    hasMore: hasMoreFiltered,
-    loadMore: loadMoreFiltered,
+    hasMore,
+    loadMore,
     reset,
   } = useDEXFilters(dexes);
-
-  // Determine which load more function to use
-  const shouldShowLoadMore = hasMoreFiltered || hasMoreBatches;
-  const handleLoadMore = hasMoreFiltered ? loadMoreFiltered : loadMoreBatches;
 
   return (
     <Layout>
@@ -54,14 +49,15 @@ export default function DEXPage() {
                 {isCached ? 'Cached' : 'Fresh'} • Updated {formatRelativeTime(cachedAt)}
               </Badge>
             )}
-            {currentBatch && totalBatches && (
+            {/* Show batch info only in development */}
+            {process.env.NODE_ENV === 'development' && totalBatches > 0 && (
               <Badge colorScheme="purple" fontSize="xs">
-                Batch {currentBatch}/{totalBatches}
+                Batch {loadedBatches}/{totalBatches} ({Math.round(progress)}%)
               </Badge>
             )}
           </HStack>
           <Text fontSize="sm" color="gray.500" mt={2}>
-            💡 Tip: DEX fees include swap fees + gas fees. DEXes load progressively with AI-powered fee data.
+            💡 Tip: DEX fees include swap fees + gas fees. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'DEXes load progressively with AI-powered fee data.'}
           </Text>
         </Box>
 
@@ -90,11 +86,10 @@ export default function DEXPage() {
         <DEXGrid
           dexes={displayedDEXes}
           isLoading={isLoading}
-          isLoadingMore={isLoadingMore}
-          hasMore={shouldShowLoadMore}
-          onLoadMore={handleLoadMore}
-          currentBatch={currentBatch}
-          totalBatches={totalBatches}
+          backgroundLoading={backgroundLoading}
+          hasMore={hasMore}
+          onLoadMore={loadMore}
+          progress={progress}
         />
       </VStack>
     </Layout>

@@ -11,10 +11,12 @@ import { fetchCEXFeesFromAI, mergeCEXFeeData } from '@/lib/api/gemini';
  * Used for progressive loading after initial batch
  */
 
+import { CEX_CACHE_DURATION, CEX_CACHE_DURATION_SECONDS } from '@/config/constants';
+
 // Shared cache with main API
-let exchangeCache: any[] | null = null;
-let cacheTimestamp: number | null = null;
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+declare global {
+  var cexCompleteCache: { data: any; timestamp: number } | null;
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -24,74 +26,57 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { batch = '2', batchSize = '8' } = req.query;
+  const { batch = '2', batchSize = '10' } = req.query;
   const batchNum = parseInt(batch as string, 10);
   const size = parseInt(batchSize as string, 10);
 
   try {
-    // Get base exchange data (from cache or fresh fetch)
-    let baseExchanges: any[];
-    
-    if (exchangeCache && cacheTimestamp && Date.now() - cacheTimestamp < CACHE_DURATION) {
-      baseExchanges = exchangeCache;
-    } else {
-      // Fetch fresh data if cache is stale
-      const rawData = await fetchCombinedExchangeData(100);
-      baseExchanges = rawData.map(normalizeCombinedExchangeData);
+    // Check if complete cache exists and is valid
+    if (global.cexCompleteCache && Date.now() - global.cexCompleteCache.timestamp < CEX_CACHE_DURATION) {
+      console.log(`✓ Serving CEX batch ${batchNum} from ${parseInt(process.env.CEX_CACHE_HOURS || '72', 10)}-hour cache`);
       
-      // Update cache
-      exchangeCache = baseExchanges;
-      cacheTimestamp = Date.now();
-    }
+      const startIndex = (batchNum - 1) * size;
+      const endIndex = startIndex + size;
+      const batchData = global.cexCompleteCache.data.slice(startIndex, endIndex);
 
-    // Calculate batch indices
-    const startIndex = (batchNum - 1) * size;
-    const endIndex = startIndex + size;
-    const batchExchanges = baseExchanges.slice(startIndex, endIndex);
+      if (batchData.length === 0) {
+        return res.status(200).json({
+          data: [],
+          batch: batchNum,
+          totalBatches: Math.ceil(global.cexCompleteCache.data.length / size),
+          hasMore: false,
+          message: 'No more exchanges to load',
+        });
+      }
 
-    if (batchExchanges.length === 0) {
+      // Set cache headers (configurable duration)
+      res.setHeader(
+        'Cache-Control',
+        `public, s-maxage=${CEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${CEX_CACHE_DURATION_SECONDS * 2}`
+      );
+
+      const totalBatches = Math.ceil(global.cexCompleteCache.data.length / size);
+      const hasMore = endIndex < global.cexCompleteCache.data.length;
+
       return res.status(200).json({
-        data: [],
+        data: batchData,
         batch: batchNum,
-        totalBatches: Math.ceil(baseExchanges.length / size),
-        hasMore: false,
-        message: 'No more exchanges to load',
+        totalBatches,
+        hasMore,
+        totalExchanges: global.cexCompleteCache.data.length,
+        cached: true,
+        cachedAt: new Date(global.cexCompleteCache.timestamp).toISOString(),
       });
     }
 
-    // Use Gemini AI to collect real fee data for this batch
-    let finalBatchData = batchExchanges;
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        console.log(`Fetching AI fee data for batch ${batchNum} (${batchExchanges.length} exchanges)...`);
-        const aiFeesData = await fetchCEXFeesFromAI(batchExchanges);
-        
-        if (aiFeesData.length > 0) {
-          finalBatchData = mergeCEXFeeData(batchExchanges, aiFeesData);
-          console.log(`Successfully merged AI fee data for ${aiFeesData.length} exchanges in batch ${batchNum}`);
-        }
-      } catch (aiError) {
-        console.error(`AI fee collection failed for batch ${batchNum}, using placeholder data:`, aiError);
-        // Continue with placeholder data if AI fails
-      }
-    }
-
-    // Set cache headers
-    res.setHeader(
-      'Cache-Control',
-      'public, s-maxage=3600, stale-while-revalidate=7200'
-    );
-
-    const totalBatches = Math.ceil(baseExchanges.length / size);
-    const hasMore = endIndex < baseExchanges.length;
-
+    // Cache doesn't exist or expired - redirect to main API to rebuild
     return res.status(200).json({
-      data: finalBatchData,
+      data: [],
       batch: batchNum,
-      totalBatches,
-      hasMore,
-      totalExchanges: baseExchanges.length,
-      cachedAt: new Date().toISOString(),
+      totalBatches: 0,
+      hasMore: false,
+      message: 'Cache expired - please refresh the main page to rebuild cache',
+      cacheExpired: true,
     });
   } catch (error) {
     console.error('CEX Fees Batch API Error:', error);
