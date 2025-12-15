@@ -1,6 +1,15 @@
-// Cache configuration
-export const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours in milliseconds
-export const CACHE_DURATION_SECONDS = 86400; // 24 hours in seconds
+// Cache configuration - configurable via environment variables
+const CEX_CACHE_HOURS = parseInt(process.env.CEX_CACHE_HOURS || '72', 10);
+const DEX_CACHE_HOURS = parseInt(process.env.DEX_CACHE_HOURS || '72', 10);
+
+export const CEX_CACHE_DURATION = CEX_CACHE_HOURS * 60 * 60 * 1000; // CEX cache in milliseconds
+export const DEX_CACHE_DURATION = DEX_CACHE_HOURS * 60 * 60 * 1000; // DEX cache in milliseconds
+export const CEX_CACHE_DURATION_SECONDS = CEX_CACHE_HOURS * 60 * 60; // CEX cache in seconds
+export const DEX_CACHE_DURATION_SECONDS = DEX_CACHE_HOURS * 60 * 60; // DEX cache in seconds
+
+// Legacy constant for backward compatibility
+export const CACHE_DURATION = CEX_CACHE_DURATION;
+export const CACHE_DURATION_SECONDS = CEX_CACHE_DURATION_SECONDS;
 
 // API configuration
 export const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';

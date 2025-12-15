@@ -11,10 +11,12 @@ import { fetchDEXFeesFromAI, mergeDEXFeeData } from '@/lib/api/gemini';
  * Used for progressive loading after initial batch
  */
 
-// Shared cache with main API
-let dexCache: any[] | null = null;
-let cacheTimestamp: number | null = null;
-const CACHE_DURATION = 24 * 60 * 60 * 1000; // 24 hours
+import { DEX_CACHE_DURATION, DEX_CACHE_DURATION_SECONDS } from '@/config/constants';
+
+// Shared cache with main DEX API
+declare global {
+  var dexCompleteCache: { data: any; timestamp: number } | null;
+}
 
 export default async function handler(
   req: NextApiRequest,
@@ -29,69 +31,52 @@ export default async function handler(
   const size = parseInt(batchSize as string, 10);
 
   try {
-    // Get base DEX data (from cache or fresh fetch)
-    let baseDEXes: any[];
-    
-    if (dexCache && cacheTimestamp && Date.now() - cacheTimestamp < CACHE_DURATION) {
-      baseDEXes = dexCache;
-    } else {
-      // Fetch fresh data if cache is stale
-      const rawDEXData = await fetchCombinedDEXData();
-      baseDEXes = rawDEXData.map(normalizeDEXData);
+    // Check if complete DEX cache exists and is valid
+    if (global.dexCompleteCache && Date.now() - global.dexCompleteCache.timestamp < DEX_CACHE_DURATION) {
+      console.log(`✓ Serving DEX batch ${batchNum} from ${parseInt(process.env.DEX_CACHE_HOURS || '72', 10)}-hour cache`);
       
-      // Update cache
-      dexCache = baseDEXes;
-      cacheTimestamp = Date.now();
-    }
+      const startIndex = (batchNum - 1) * size;
+      const endIndex = startIndex + size;
+      const batchData = global.dexCompleteCache.data.slice(startIndex, endIndex);
 
-    // Calculate batch indices
-    const startIndex = (batchNum - 1) * size;
-    const endIndex = startIndex + size;
-    const batchDEXes = baseDEXes.slice(startIndex, endIndex);
+      if (batchData.length === 0) {
+        return res.status(200).json({
+          data: [],
+          batch: batchNum,
+          totalBatches: Math.ceil(global.dexCompleteCache.data.length / size),
+          hasMore: false,
+          message: 'No more DEXes to load',
+        });
+      }
 
-    if (batchDEXes.length === 0) {
+      // Set cache headers (configurable duration)
+      res.setHeader(
+        'Cache-Control',
+        `public, s-maxage=${DEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${DEX_CACHE_DURATION_SECONDS * 2}`
+      );
+
+      const totalBatches = Math.ceil(global.dexCompleteCache.data.length / size);
+      const hasMore = endIndex < global.dexCompleteCache.data.length;
+
       return res.status(200).json({
-        data: [],
+        data: batchData,
         batch: batchNum,
-        totalBatches: Math.ceil(baseDEXes.length / size),
-        hasMore: false,
-        message: 'No more DEXes to load',
+        totalBatches,
+        hasMore,
+        totalDEXes: global.dexCompleteCache.data.length,
+        cached: true,
+        cachedAt: new Date(global.dexCompleteCache.timestamp).toISOString(),
       });
     }
 
-    // Use Gemini AI to collect real fee data for this batch
-    let finalBatchData = batchDEXes;
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        console.log(`Fetching AI fee data for DEX batch ${batchNum} (${batchDEXes.length} DEXes)...`);
-        const aiFeesData = await fetchDEXFeesFromAI(batchDEXes);
-        
-        if (aiFeesData.length > 0) {
-          finalBatchData = mergeDEXFeeData(batchDEXes, aiFeesData);
-          console.log(`Successfully merged AI fee data for ${aiFeesData.length} DEXes in batch ${batchNum}`);
-        }
-      } catch (aiError) {
-        console.error(`AI fee collection failed for DEX batch ${batchNum}, using placeholder data:`, aiError);
-        // Continue with placeholder data if AI fails
-      }
-    }
-
-    // Set cache headers
-    res.setHeader(
-      'Cache-Control',
-      'public, s-maxage=3600, stale-while-revalidate=7200'
-    );
-
-    const totalBatches = Math.ceil(baseDEXes.length / size);
-    const hasMore = endIndex < baseDEXes.length;
-
+    // Cache doesn't exist or expired - redirect to main API to rebuild
     return res.status(200).json({
-      data: finalBatchData,
+      data: [],
       batch: batchNum,
-      totalBatches,
-      hasMore,
-      totalDEXes: baseDEXes.length,
-      cachedAt: new Date().toISOString(),
+      totalBatches: 0,
+      hasMore: false,
+      message: 'Cache expired - please refresh the main page to rebuild cache',
+      cacheExpired: true,
     });
   } catch (error) {
     console.error('DEX Fees Batch API Error:', error);

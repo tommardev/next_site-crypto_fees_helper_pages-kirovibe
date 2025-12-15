@@ -243,15 +243,10 @@ export async function fetchDEXFeesFromAI(dexes: DEXFees[]): Promise<DEXFeeData[]
 export function mergeCEXFeeData(exchanges: CEXFees[], aiData: CEXFeeData[]): CEXFees[] {
   const feeMap = new Map(aiData.map(fee => [fee.exchangeId, fee]));
   
-  console.log(`Merging AI data: ${aiData.length} AI records with ${exchanges.length} exchanges`);
-  console.log('AI Exchange IDs:', aiData.map(d => d.exchangeId));
-  console.log('Exchange IDs:', exchanges.map(e => e.exchangeId));
-  
   return exchanges.map(exchange => {
     const aiFeesData = feeMap.get(exchange.exchangeId);
     
     if (aiFeesData) {
-      console.log(`✓ Matched AI data for ${exchange.exchangeName} (${exchange.exchangeId})`);
       return {
         ...exchange,
         makerFee: aiFeesData.makerFee,
@@ -260,8 +255,6 @@ export function mergeCEXFeeData(exchanges: CEXFees[], aiData: CEXFeeData[]): CEX
         depositFees: aiFeesData.depositFees,
         lastUpdated: new Date().toISOString(),
       };
-    } else {
-      console.log(`✗ No AI data found for ${exchange.exchangeName} (${exchange.exchangeId})`);
     }
     
     return exchange;
@@ -274,23 +267,16 @@ export function mergeCEXFeeData(exchanges: CEXFees[], aiData: CEXFeeData[]): CEX
 export function mergeDEXFeeData(dexes: DEXFees[], aiData: DEXFeeData[]): DEXFees[] {
   const feeMap = new Map(aiData.map(fee => [fee.dexId, fee]));
   
-  console.log(`Merging DEX AI data: ${aiData.length} AI records with ${dexes.length} DEXes`);
-  console.log('AI DEX IDs:', aiData.map(d => d.dexId));
-  console.log('DEX IDs:', dexes.map(d => d.dexId));
-  
   return dexes.map(dex => {
     const aiFeesData = feeMap.get(dex.dexId);
     
     if (aiFeesData) {
-      console.log(`✓ Matched AI data for ${dex.dexName} (${dex.dexId})`);
       return {
         ...dex,
         swapFee: aiFeesData.swapFee,
         gasFeeEstimate: aiFeesData.gasFeeEstimate,
         lastUpdated: new Date().toISOString(),
       };
-    } else {
-      console.log(`✗ No AI data found for ${dex.dexName} (${dex.dexId})`);
     }
     
     return dex;

@@ -1,6 +1,7 @@
 import useSWR from 'swr';
 import { useState, useEffect, useCallback } from 'react';
 import { CEXFees } from '@/lib/types/exchange';
+import { CEX_CACHE_DURATION, DEX_CACHE_DURATION } from '@/config/constants';
 
 // SWR fetcher function
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
@@ -19,7 +20,7 @@ export function useExchangeFees() {
   const { data: firstBatch, error, isLoading } = useSWR('/api/cex-fees?batch=1&batchSize=10', fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
-    refreshInterval: 24 * 60 * 60 * 1000, // 24 hours
+    refreshInterval: CEX_CACHE_DURATION, // Configurable CEX cache duration
     dedupingInterval: 60000,
   });
 
@@ -100,7 +101,7 @@ export function useDEXFees() {
   const { data: firstBatch, error, isLoading } = useSWR('/api/dex-fees?batch=1&batchSize=10', fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
-    refreshInterval: 24 * 60 * 60 * 1000, // 24 hours
+    refreshInterval: DEX_CACHE_DURATION, // Configurable DEX cache duration
     dedupingInterval: 60000,
   });
 
@@ -177,7 +178,7 @@ export function useExchangeFeesWithConfig(config?: {
   const { data, error, isLoading, mutate } = useSWR('/api/cex-fees', fetcher, {
     revalidateOnFocus: config?.revalidateOnFocus ?? false,
     revalidateOnReconnect: false,
-    refreshInterval: config?.refreshInterval ?? 24 * 60 * 60 * 1000,
+    refreshInterval: config?.refreshInterval ?? CEX_CACHE_DURATION,
     dedupingInterval: 60000,
     errorRetryCount: 3,
     errorRetryInterval: 5000,

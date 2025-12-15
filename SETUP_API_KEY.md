@@ -41,9 +41,13 @@ CoinMarketCap provides **REAL maker and taker fee data** for cryptocurrency exch
 
 2. Open `.env.local` in your text editor
 
-3. Paste your API key:
+3. Paste your API key and configure cache settings:
    ```env
    COINMARKETCAP_API_KEY=paste_your_api_key_here
+   
+   # Cache Configuration (optional - defaults shown)
+   CEX_CACHE_HOURS=24
+   DEX_CACHE_HOURS=12
    ```
 
 4. Save the file
@@ -57,24 +61,25 @@ CoinMarketCap provides **REAL maker and taker fee data** for cryptocurrency exch
 
 1. Go to your Vercel project dashboard
 2. Click **"Settings"** → **"Environment Variables"**
-3. Add new variable:
-   - **Name**: `COINMARKETCAP_API_KEY`
-   - **Value**: Your API key
+3. Add required variables:
+   - **Name**: `COINMARKETCAP_API_KEY`, **Value**: Your API key
+   - **Name**: `CEX_CACHE_HOURS`, **Value**: `24` (or your preferred hours)
+   - **Name**: `DEX_CACHE_HOURS`, **Value**: `12` (or your preferred hours)
    - **Environment**: Select all (Production, Preview, Development)
-4. Click **"Save"**
+4. Click **"Save"** for each variable
 5. Redeploy your project
 
 #### For Netlify Deployment:
 
 1. Go to your Netlify site dashboard
 2. Click **"Site settings"** → **"Environment variables"**
-3. Click **"Add a variable"**
-4. Add:
-   - **Key**: `COINMARKETCAP_API_KEY`
-   - **Value**: Your API key
-   - **Scopes**: Check all boxes
-5. Click **"Save"**
-6. Trigger a new deploy
+3. Click **"Add a variable"** for each:
+   - **Key**: `COINMARKETCAP_API_KEY`, **Value**: Your API key
+   - **Key**: `CEX_CACHE_HOURS`, **Value**: `24`
+   - **Key**: `DEX_CACHE_HOURS`, **Value**: `12`
+   - **Scopes**: Check all boxes for each
+4. Click **"Save"** for each variable
+5. Trigger a new deploy
 
 ## Free Tier Limits
 
