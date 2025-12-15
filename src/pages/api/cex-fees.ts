@@ -78,57 +78,88 @@ export default async function handler(
     // Normalize data with placeholder fee values
     const normalizedData = rawData.map(normalizeCombinedExchangeData);
 
-    // Fetch AI fee data for ALL exchanges at once (for complete cache)
-    let completeDataWithAI = normalizedData;
-    if (process.env.GEMINI_API_KEY && normalizedData.length > 0) {
-      try {
-        console.log(`🤖 Fetching AI fee data for ALL ${normalizedData.length} exchanges (cache rebuild)...`);
-        
-        // Process in batches of 10 to avoid API timeouts, but cache the complete result
-        const batchSize = 10;
-        const totalBatches = Math.ceil(normalizedData.length / batchSize);
-        
-        for (let i = 0; i < totalBatches; i++) {
-          const batchStart = i * batchSize;
-          const batchEnd = batchStart + batchSize;
-          const batchExchanges = normalizedData.slice(batchStart, batchEnd);
-          
-          console.log(`🤖 Processing AI batch ${i + 1}/${totalBatches} (${batchExchanges.length} exchanges)...`);
-          
-          const aiFeesData = await fetchCEXFeesFromAI(batchExchanges);
-          
-          if (aiFeesData.length > 0) {
-            const enhancedBatch = mergeCEXFeeData(batchExchanges, aiFeesData);
-            // Replace the batch in the complete array
-            completeDataWithAI.splice(batchStart, batchExchanges.length, ...enhancedBatch);
-            console.log(`✓ Enhanced batch ${i + 1}/${totalBatches} with AI fee data`);
-          }
-        }
-        
-        console.log(`🎉 Complete CEX dataset with AI fees ready - caching for ${CEX_CACHE_HOURS} hours`);
-      } catch (aiError) {
-        console.error('AI fee collection failed during cache rebuild, using placeholder data:', aiError);
-        // Continue with placeholder data if AI fails
+    // For first batch request, return immediately with placeholder data
+    // Then enhance with AI in background
+    if (batchNum === 1) {
+      // Return first batch immediately with placeholder data
+      const startIndex = 0;
+      const endIndex = size;
+      const firstBatchData = normalizedData.slice(startIndex, endIndex);
+
+      // Cache placeholder data temporarily
+      completeCache = {
+        data: normalizedData,
+        timestamp: Date.now(),
+      };
+      
+      // Update global cache for batch API access
+      if (typeof global !== 'undefined') {
+        global.cexCompleteCache = completeCache;
       }
-    } else if (!process.env.GEMINI_API_KEY) {
-      console.warn('GEMINI_API_KEY not configured, caching placeholder fee data');
+
+      // Start AI enhancement in background (don't await)
+      if (process.env.GEMINI_API_KEY && normalizedData.length > 0) {
+        console.log(`🚀 Starting background AI enhancement for ${normalizedData.length} exchanges...`);
+        
+        // Background AI processing (async, no await)
+        (async () => {
+          try {
+            let completeDataWithAI = [...normalizedData];
+            const batchSize = 10;
+            const totalBatches = Math.ceil(normalizedData.length / batchSize);
+            
+            for (let i = 0; i < totalBatches; i++) {
+              const batchStart = i * batchSize;
+              const batchEnd = batchStart + batchSize;
+              const batchExchanges = normalizedData.slice(batchStart, batchEnd);
+              
+              console.log(`🤖 Background processing AI batch ${i + 1}/${totalBatches} (${batchExchanges.length} exchanges)...`);
+              
+              const aiFeesData = await fetchCEXFeesFromAI(batchExchanges);
+              
+              if (aiFeesData.length > 0) {
+                const enhancedBatch = mergeCEXFeeData(batchExchanges, aiFeesData);
+                completeDataWithAI.splice(batchStart, batchExchanges.length, ...enhancedBatch);
+                console.log(`✓ Background enhanced batch ${i + 1}/${totalBatches} with AI fee data`);
+              }
+            }
+            
+            // Update cache with AI-enhanced data
+            completeCache = {
+              data: completeDataWithAI,
+              timestamp: Date.now(),
+            };
+            
+            if (typeof global !== 'undefined') {
+              global.cexCompleteCache = completeCache;
+            }
+            
+            console.log(`🎉 Background AI enhancement complete - cached for ${CEX_CACHE_HOURS} hours`);
+          } catch (aiError) {
+            console.error('Background AI enhancement failed:', aiError);
+          }
+        })();
+      }
+
+      const totalBatches = Math.ceil(normalizedData.length / size);
+      const hasMore = endIndex < normalizedData.length;
+
+      return res.status(200).json({
+        data: firstBatchData,
+        cached: false,
+        cachedAt: new Date().toISOString(),
+        batch: batchNum,
+        totalBatches,
+        hasMore,
+        totalExchanges: normalizedData.length,
+        backgroundProcessing: !!process.env.GEMINI_API_KEY,
+      });
     }
 
-    // Cache the complete AI-enhanced dataset for 24 hours
-    completeCache = {
-      data: completeDataWithAI,
-      timestamp: Date.now(),
-    };
-    
-    // Update global cache for batch API access
-    if (typeof global !== 'undefined') {
-      global.cexCompleteCache = completeCache;
-    }
-
-    // Return the requested batch from the complete dataset
+    // For non-first batch requests, return from current cache
     const startIndex = (batchNum - 1) * size;
     const endIndex = startIndex + size;
-    const batchData = completeDataWithAI.slice(startIndex, endIndex);
+    const batchData = normalizedData.slice(startIndex, endIndex);
 
     // Set cache headers for CDN/browser caching (configurable duration)
     res.setHeader(
@@ -136,8 +167,8 @@ export default async function handler(
       `public, s-maxage=${CEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${CEX_CACHE_DURATION_SECONDS * 2}`
     );
 
-    const totalBatches = Math.ceil(completeDataWithAI.length / size);
-    const hasMore = endIndex < completeDataWithAI.length;
+    const totalBatches = Math.ceil(normalizedData.length / size);
+    const hasMore = endIndex < normalizedData.length;
 
     return res.status(200).json({
       data: batchData,
@@ -146,7 +177,7 @@ export default async function handler(
       batch: batchNum,
       totalBatches,
       hasMore,
-      totalExchanges: completeDataWithAI.length,
+      totalExchanges: normalizedData.length,
     });
   } catch (error) {
     console.error('CEX Fees API Error:', error);

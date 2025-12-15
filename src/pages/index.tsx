@@ -57,7 +57,7 @@ export default function HomePage() {
             )}
           </HStack>
           <Text fontSize="sm" color="gray.500" mt={2}>
-            💡 Tip: Lower fees mean more profit on your trades. Exchanges load progressively with AI-powered fee data.
+            💡 Tip: Lower fees mean more profit on your trades. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'Exchanges load progressively with AI-powered fee data.'}
           </Text>
         </Box>
 

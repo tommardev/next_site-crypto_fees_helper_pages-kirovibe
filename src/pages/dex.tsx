@@ -57,7 +57,7 @@ export default function DEXPage() {
             )}
           </HStack>
           <Text fontSize="sm" color="gray.500" mt={2}>
-            💡 Tip: DEX fees include swap fees + gas fees. DEXes load progressively with AI-powered fee data.
+            💡 Tip: DEX fees include swap fees + gas fees. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'DEXes load progressively with AI-powered fee data.'}
           </Text>
         </Box>
 

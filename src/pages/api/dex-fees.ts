@@ -71,57 +71,88 @@ export default async function handler(
     // Normalize DEX data (will be empty array if APIs fail)
     const normalizedData = rawDEXData.map(normalizeDEXData);
 
-    // Fetch AI fee data for ALL DEXes at once (for complete cache)
-    let completeDataWithAI = normalizedData;
-    if (process.env.GEMINI_API_KEY && normalizedData.length > 0) {
-      try {
-        console.log(`🤖 Fetching AI fee data for ALL ${normalizedData.length} DEXes (cache rebuild)...`);
-        
-        // Process in batches of 10 to avoid API timeouts, but cache the complete result
-        const batchSize = 10;
-        const totalBatches = Math.ceil(normalizedData.length / batchSize);
-        
-        for (let i = 0; i < totalBatches; i++) {
-          const batchStart = i * batchSize;
-          const batchEnd = batchStart + batchSize;
-          const batchDEXes = normalizedData.slice(batchStart, batchEnd);
-          
-          console.log(`🤖 Processing DEX AI batch ${i + 1}/${totalBatches} (${batchDEXes.length} DEXes)...`);
-          
-          const aiFeesData = await fetchDEXFeesFromAI(batchDEXes);
-          
-          if (aiFeesData.length > 0) {
-            const enhancedBatch = mergeDEXFeeData(batchDEXes, aiFeesData);
-            // Replace the batch in the complete array
-            completeDataWithAI.splice(batchStart, batchDEXes.length, ...enhancedBatch);
-            console.log(`✓ Enhanced DEX batch ${i + 1}/${totalBatches} with AI fee data`);
-          }
-        }
-        
-        console.log(`🎉 Complete DEX dataset with AI fees ready - caching for ${DEX_CACHE_HOURS} hours`);
-      } catch (aiError) {
-        console.error('AI fee collection failed during DEX cache rebuild, using placeholder data:', aiError);
-        // Continue with placeholder data if AI fails
+    // For first batch request, return immediately with placeholder data
+    // Then enhance with AI in background
+    if (batchNum === 1) {
+      // Return first batch immediately with placeholder data
+      const startIndex = 0;
+      const endIndex = size;
+      const firstBatchData = normalizedData.slice(startIndex, endIndex);
+
+      // Cache placeholder data temporarily
+      completeDEXCache = {
+        data: normalizedData,
+        timestamp: Date.now(),
+      };
+      
+      // Update global cache for batch API access
+      if (typeof global !== 'undefined') {
+        global.dexCompleteCache = completeDEXCache;
       }
-    } else if (!process.env.GEMINI_API_KEY) {
-      console.warn('GEMINI_API_KEY not configured, caching placeholder DEX fee data');
+
+      // Start AI enhancement in background (don't await)
+      if (process.env.GEMINI_API_KEY && normalizedData.length > 0) {
+        console.log(`🚀 Starting background DEX AI enhancement for ${normalizedData.length} DEXes...`);
+        
+        // Background AI processing (async, no await)
+        (async () => {
+          try {
+            let completeDataWithAI = [...normalizedData];
+            const batchSize = 10;
+            const totalBatches = Math.ceil(normalizedData.length / batchSize);
+            
+            for (let i = 0; i < totalBatches; i++) {
+              const batchStart = i * batchSize;
+              const batchEnd = batchStart + batchSize;
+              const batchDEXes = normalizedData.slice(batchStart, batchEnd);
+              
+              console.log(`🤖 Background processing DEX AI batch ${i + 1}/${totalBatches} (${batchDEXes.length} DEXes)...`);
+              
+              const aiFeesData = await fetchDEXFeesFromAI(batchDEXes);
+              
+              if (aiFeesData.length > 0) {
+                const enhancedBatch = mergeDEXFeeData(batchDEXes, aiFeesData);
+                completeDataWithAI.splice(batchStart, batchDEXes.length, ...enhancedBatch);
+                console.log(`✓ Background enhanced DEX batch ${i + 1}/${totalBatches} with AI fee data`);
+              }
+            }
+            
+            // Update cache with AI-enhanced data
+            completeDEXCache = {
+              data: completeDataWithAI,
+              timestamp: Date.now(),
+            };
+            
+            if (typeof global !== 'undefined') {
+              global.dexCompleteCache = completeDEXCache;
+            }
+            
+            console.log(`🎉 Background DEX AI enhancement complete - cached for ${DEX_CACHE_HOURS} hours`);
+          } catch (aiError) {
+            console.error('Background DEX AI enhancement failed:', aiError);
+          }
+        })();
+      }
+
+      const totalBatches = Math.ceil(normalizedData.length / size);
+      const hasMore = endIndex < normalizedData.length;
+
+      return res.status(200).json({
+        data: firstBatchData,
+        cached: false,
+        cachedAt: new Date().toISOString(),
+        batch: batchNum,
+        totalBatches,
+        hasMore,
+        totalDEXes: normalizedData.length,
+        backgroundProcessing: !!process.env.GEMINI_API_KEY,
+      });
     }
 
-    // Cache the complete AI-enhanced DEX dataset for 24 hours
-    completeDEXCache = {
-      data: completeDataWithAI,
-      timestamp: Date.now(),
-    };
-    
-    // Update global cache for batch API access
-    if (typeof global !== 'undefined') {
-      global.dexCompleteCache = completeDEXCache;
-    }
-
-    // Return the requested batch from the complete dataset
+    // For non-first batch requests, return from current cache
     const startIndex = (batchNum - 1) * size;
     const endIndex = startIndex + size;
-    const batchData = completeDataWithAI.slice(startIndex, endIndex);
+    const batchData = normalizedData.slice(startIndex, endIndex);
 
     // Set cache headers for CDN/browser caching (configurable duration)
     res.setHeader(
@@ -129,8 +160,8 @@ export default async function handler(
       `public, s-maxage=${DEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${DEX_CACHE_DURATION_SECONDS * 2}`
     );
 
-    const totalBatches = Math.ceil(completeDataWithAI.length / size);
-    const hasMore = endIndex < completeDataWithAI.length;
+    const totalBatches = Math.ceil(normalizedData.length / size);
+    const hasMore = endIndex < normalizedData.length;
 
     return res.status(200).json({
       data: batchData,
@@ -139,7 +170,7 @@ export default async function handler(
       batch: batchNum,
       totalBatches,
       hasMore,
-      totalDEXes: completeDataWithAI.length,
+      totalDEXes: normalizedData.length,
     });
   } catch (error) {
     console.error('DEX Fees API Error:', error);
