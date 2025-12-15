@@ -32,7 +32,7 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { batch = '1', batchSize = '8' } = req.query;
+  const { batch = '1', batchSize = '10' } = req.query;
   const batchNum = parseInt(batch as string, 10);
   const size = parseInt(batchSize as string, 10);
 

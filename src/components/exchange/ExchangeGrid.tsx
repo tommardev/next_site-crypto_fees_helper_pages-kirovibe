@@ -1,4 +1,4 @@
-import { SimpleGrid, Box, Text, Button, VStack, Spinner, HStack } from '@chakra-ui/react';
+import { SimpleGrid, Box, Text, Button, VStack, Spinner, HStack, Progress } from '@chakra-ui/react';
 import { ExchangeCard } from './ExchangeCard';
 import { ExchangeGridSkeleton } from './ExchangeSkeleton';
 import { CEXFees } from '@/lib/types/exchange';
@@ -6,23 +6,21 @@ import { CEXFees } from '@/lib/types/exchange';
 interface ExchangeGridProps {
   exchanges: CEXFees[];
   isLoading?: boolean;
-  isLoadingMore?: boolean;
+  backgroundLoading?: boolean;
   emptyMessage?: string;
   hasMore?: boolean;
   onLoadMore?: () => void;
-  currentBatch?: number;
-  totalBatches?: number;
+  progress?: number;
 }
 
 export function ExchangeGrid({
   exchanges,
   isLoading,
-  isLoadingMore,
+  backgroundLoading,
   emptyMessage = 'No exchanges found',
   hasMore,
   onLoadMore,
-  currentBatch,
-  totalBatches,
+  progress = 0,
 }: ExchangeGridProps) {
   if (isLoading && exchanges.length === 0) {
     return (
@@ -32,7 +30,7 @@ export function ExchangeGrid({
         </SimpleGrid>
         <Box textAlign="center" py={4}>
           <Text fontSize="sm" color="gray.500">
-            Loading first batch of exchanges...
+            Loading exchanges with AI-powered fee data...
           </Text>
         </Box>
       </VStack>
@@ -59,52 +57,48 @@ export function ExchangeGrid({
             rank={index + 1}
           />
         ))}
-        
-        {/* Show skeleton cards for loading more */}
-        {isLoadingMore && (
-          <ExchangeGridSkeleton count={6} />
-        )}
       </SimpleGrid>
 
-      {/* Loading more indicator */}
-      {isLoadingMore && (
-        <Box textAlign="center" py={4}>
-          <HStack justify="center" spacing={3}>
-            <Spinner size="sm" />
-            <Text fontSize="sm" color="gray.500">
-              Loading more exchanges with AI fee data...
-            </Text>
-          </HStack>
-        </Box>
-      )}
-
-      {/* Load more button */}
-      {hasMore && !isLoadingMore && onLoadMore && (
-        <Box textAlign="center" pt={4}>
-          <VStack spacing={2}>
-            <Button
-              onClick={onLoadMore}
-              colorScheme="blue"
-              variant="outline"
-              size="lg"
-              isDisabled={isLoadingMore}
-            >
-              Load More Exchanges
-            </Button>
-            {currentBatch && totalBatches && (
-              <Text fontSize="xs" color="gray.500">
-                Loaded {currentBatch} of {totalBatches} batches
+      {/* Background loading indicator */}
+      {backgroundLoading && (
+        <Box py={4}>
+          <VStack spacing={3}>
+            <HStack justify="center" spacing={3}>
+              <Spinner size="sm" color="blue.500" />
+              <Text fontSize="sm" color="gray.600">
+                Loading more exchanges with AI fee data in background...
               </Text>
-            )}
+            </HStack>
+            <Progress 
+              value={progress} 
+              size="sm" 
+              colorScheme="blue" 
+              width="200px" 
+              borderRadius="md"
+            />
           </VStack>
         </Box>
       )}
 
+      {/* Load more button for filtered results */}
+      {hasMore && onLoadMore && !backgroundLoading && (
+        <Box textAlign="center" pt={4}>
+          <Button
+            onClick={onLoadMore}
+            colorScheme="blue"
+            variant="outline"
+            size="lg"
+          >
+            Show More Results
+          </Button>
+        </Box>
+      )}
+
       {/* All loaded message */}
-      {!hasMore && exchanges.length > 10 && (
+      {!backgroundLoading && !hasMore && exchanges.length > 10 && (
         <Box textAlign="center" py={4}>
           <Text fontSize="sm" color="gray.500">
-            All exchanges loaded ({exchanges.length} total)
+            Showing all {exchanges.length} exchanges
           </Text>
         </Box>
       )}

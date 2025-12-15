@@ -11,73 +11,78 @@ const fetcher = (url: string) => fetch(url).then((res) => res.json());
  */
 export function useExchangeFees() {
   const [allExchanges, setAllExchanges] = useState<CEXFees[]>([]);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [currentBatch, setCurrentBatch] = useState(1);
+  const [backgroundLoading, setBackgroundLoading] = useState(false);
+  const [totalBatches, setTotalBatches] = useState(0);
+  const [loadedBatches, setLoadedBatches] = useState(0);
 
-  // Load first batch (smaller for faster initial load)
-  const { data: firstBatch, error, isLoading } = useSWR('/api/cex-fees?batch=1&batchSize=8', fetcher, {
+  // Load first batch
+  const { data: firstBatch, error, isLoading } = useSWR('/api/cex-fees?batch=1&batchSize=10', fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     refreshInterval: 24 * 60 * 60 * 1000, // 24 hours
     dedupingInterval: 60000,
   });
 
-  // Load additional batches
-  const loadNextBatch = useCallback(async () => {
-    if (!hasMore || isLoadingMore) return;
+  // Background loading of remaining batches
+  const loadRemainingBatches = useCallback(async (totalBatches: number) => {
+    if (totalBatches <= 1) return;
 
-    setIsLoadingMore(true);
-    try {
-      const nextBatch = currentBatch + 1;
-      const response = await fetch(`/api/cex-fees-batch?batch=${nextBatch}&batchSize=8`);
-      const data = await response.json();
+    setBackgroundLoading(true);
+    
+    for (let batch = 2; batch <= totalBatches; batch++) {
+      try {
+        const response = await fetch(`/api/cex-fees-batch?batch=${batch}&batchSize=10`);
+        const data = await response.json();
 
-      if (data.data && data.data.length > 0) {
-        setAllExchanges(prev => [...prev, ...data.data]);
-        setCurrentBatch(nextBatch);
-        setHasMore(data.hasMore);
-      } else {
-        setHasMore(false);
+        if (data.data && data.data.length > 0) {
+          setAllExchanges(prev => {
+            // Ensure correct ordering by inserting at the right position
+            const newExchanges = [...prev];
+            const startIndex = (batch - 1) * 10;
+            
+            // Replace or insert the batch data at the correct position
+            data.data.forEach((exchange: CEXFees, index: number) => {
+              newExchanges[startIndex + index] = exchange;
+            });
+            
+            return newExchanges;
+          });
+          setLoadedBatches(batch);
+        }
+      } catch (error) {
+        console.error(`Error loading CEX batch ${batch}:`, error);
       }
-    } catch (error) {
-      console.error('Error loading next batch:', error);
-    } finally {
-      setIsLoadingMore(false);
     }
-  }, [currentBatch, hasMore, isLoadingMore]);
+    
+    setBackgroundLoading(false);
+  }, []);
 
-  // Initialize with first batch
+  // Initialize with first batch and start background loading
   useEffect(() => {
     if (firstBatch?.data) {
       setAllExchanges(firstBatch.data);
-      setHasMore(firstBatch.hasMore ?? true);
-      setCurrentBatch(1);
+      setTotalBatches(firstBatch.totalBatches || 1);
+      setLoadedBatches(1);
+      
+      // Start background loading after a short delay
+      if (firstBatch.totalBatches > 1) {
+        setTimeout(() => {
+          loadRemainingBatches(firstBatch.totalBatches);
+        }, 500);
+      }
     }
-  }, [firstBatch]);
-
-  // Auto-load next batch after first batch loads
-  useEffect(() => {
-    if (firstBatch?.data && hasMore && currentBatch === 1) {
-      // Load second batch automatically after a short delay
-      const timer = setTimeout(() => {
-        loadNextBatch();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [firstBatch, hasMore, currentBatch, loadNextBatch]);
+  }, [firstBatch, loadRemainingBatches]);
 
   return {
     exchanges: allExchanges,
     isLoading,
     isError: error,
-    isLoadingMore,
-    hasMore,
-    loadMore: loadNextBatch,
+    backgroundLoading,
     cachedAt: firstBatch?.cachedAt,
     isCached: firstBatch?.cached,
-    totalBatches: firstBatch?.totalBatches,
-    currentBatch,
+    totalBatches,
+    loadedBatches,
+    progress: totalBatches > 0 ? (loadedBatches / totalBatches) * 100 : 0,
   };
 }
 
@@ -87,73 +92,78 @@ export function useExchangeFees() {
  */
 export function useDEXFees() {
   const [allDEXes, setAllDEXes] = useState<any[]>([]);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const [hasMore, setHasMore] = useState(true);
-  const [currentBatch, setCurrentBatch] = useState(1);
+  const [backgroundLoading, setBackgroundLoading] = useState(false);
+  const [totalBatches, setTotalBatches] = useState(0);
+  const [loadedBatches, setLoadedBatches] = useState(0);
 
   // Load first batch
-  const { data: firstBatch, error, isLoading } = useSWR('/api/dex-fees?batch=1&batchSize=8', fetcher, {
+  const { data: firstBatch, error, isLoading } = useSWR('/api/dex-fees?batch=1&batchSize=10', fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
     refreshInterval: 24 * 60 * 60 * 1000, // 24 hours
     dedupingInterval: 60000,
   });
 
-  // Load additional batches
-  const loadNextBatch = useCallback(async () => {
-    if (!hasMore || isLoadingMore) return;
+  // Background loading of remaining batches
+  const loadRemainingBatches = useCallback(async (totalBatches: number) => {
+    if (totalBatches <= 1) return;
 
-    setIsLoadingMore(true);
-    try {
-      const nextBatch = currentBatch + 1;
-      const response = await fetch(`/api/dex-fees-batch?batch=${nextBatch}&batchSize=8`);
-      const data = await response.json();
+    setBackgroundLoading(true);
+    
+    for (let batch = 2; batch <= totalBatches; batch++) {
+      try {
+        const response = await fetch(`/api/dex-fees-batch?batch=${batch}&batchSize=10`);
+        const data = await response.json();
 
-      if (data.data && data.data.length > 0) {
-        setAllDEXes(prev => [...prev, ...data.data]);
-        setCurrentBatch(nextBatch);
-        setHasMore(data.hasMore);
-      } else {
-        setHasMore(false);
+        if (data.data && data.data.length > 0) {
+          setAllDEXes(prev => {
+            // Ensure correct ordering by inserting at the right position
+            const newExchanges = [...prev];
+            const startIndex = (batch - 1) * 10;
+            
+            // Replace or insert the batch data at the correct position
+            data.data.forEach((dex: any, index: number) => {
+              newExchanges[startIndex + index] = dex;
+            });
+            
+            return newExchanges;
+          });
+          setLoadedBatches(batch);
+        }
+      } catch (error) {
+        console.error(`Error loading DEX batch ${batch}:`, error);
       }
-    } catch (error) {
-      console.error('Error loading next DEX batch:', error);
-    } finally {
-      setIsLoadingMore(false);
     }
-  }, [currentBatch, hasMore, isLoadingMore]);
+    
+    setBackgroundLoading(false);
+  }, []);
 
-  // Initialize with first batch
+  // Initialize with first batch and start background loading
   useEffect(() => {
     if (firstBatch?.data) {
       setAllDEXes(firstBatch.data);
-      setHasMore(firstBatch.hasMore ?? true);
-      setCurrentBatch(1);
+      setTotalBatches(firstBatch.totalBatches || 1);
+      setLoadedBatches(1);
+      
+      // Start background loading after a short delay
+      if (firstBatch.totalBatches > 1) {
+        setTimeout(() => {
+          loadRemainingBatches(firstBatch.totalBatches);
+        }, 500);
+      }
     }
-  }, [firstBatch]);
-
-  // Auto-load next batch after first batch loads
-  useEffect(() => {
-    if (firstBatch?.data && hasMore && currentBatch === 1) {
-      // Load second batch automatically after a short delay
-      const timer = setTimeout(() => {
-        loadNextBatch();
-      }, 1000);
-      return () => clearTimeout(timer);
-    }
-  }, [firstBatch, hasMore, currentBatch, loadNextBatch]);
+  }, [firstBatch, loadRemainingBatches]);
 
   return {
     dexes: allDEXes,
     isLoading,
     isError: error,
-    isLoadingMore,
-    hasMore,
-    loadMore: loadNextBatch,
+    backgroundLoading,
     cachedAt: firstBatch?.cachedAt,
     isCached: firstBatch?.cached,
-    totalBatches: firstBatch?.totalBatches,
-    currentBatch,
+    totalBatches,
+    loadedBatches,
+    progress: totalBatches > 0 ? (loadedBatches / totalBatches) * 100 : 0,
   };
 }
 

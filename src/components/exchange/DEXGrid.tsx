@@ -1,4 +1,4 @@
-import { SimpleGrid, Box, Text, Button, VStack, Spinner, HStack } from '@chakra-ui/react';
+import { SimpleGrid, Box, Text, Button, VStack, Spinner, HStack, Progress } from '@chakra-ui/react';
 import { DEXCard } from './DEXCard';
 import { ExchangeGridSkeleton } from './ExchangeSkeleton';
 import { DEXFees } from '@/lib/types/exchange';
@@ -6,23 +6,21 @@ import { DEXFees } from '@/lib/types/exchange';
 interface DEXGridProps {
   dexes: DEXFees[];
   isLoading?: boolean;
-  isLoadingMore?: boolean;
+  backgroundLoading?: boolean;
   emptyMessage?: string;
   hasMore?: boolean;
   onLoadMore?: () => void;
-  currentBatch?: number;
-  totalBatches?: number;
+  progress?: number;
 }
 
 export function DEXGrid({
   dexes,
   isLoading,
-  isLoadingMore,
+  backgroundLoading,
   emptyMessage = 'No DEX exchanges found',
   hasMore,
   onLoadMore,
-  currentBatch,
-  totalBatches,
+  progress = 0,
 }: DEXGridProps) {
   if (isLoading && dexes.length === 0) {
     return (
@@ -32,7 +30,7 @@ export function DEXGrid({
         </SimpleGrid>
         <Box textAlign="center" py={4}>
           <Text fontSize="sm" color="gray.500">
-            Loading first batch of DEXes...
+            Loading DEXes with AI-powered fee data...
           </Text>
         </Box>
       </VStack>
@@ -59,52 +57,48 @@ export function DEXGrid({
             rank={index + 1}
           />
         ))}
-        
-        {/* Show skeleton cards for loading more */}
-        {isLoadingMore && (
-          <ExchangeGridSkeleton count={6} />
-        )}
       </SimpleGrid>
 
-      {/* Loading more indicator */}
-      {isLoadingMore && (
-        <Box textAlign="center" py={4}>
-          <HStack justify="center" spacing={3}>
-            <Spinner size="sm" />
-            <Text fontSize="sm" color="gray.500">
-              Loading more DEXes with AI fee data...
-            </Text>
-          </HStack>
-        </Box>
-      )}
-
-      {/* Load more button */}
-      {hasMore && !isLoadingMore && onLoadMore && (
-        <Box textAlign="center" pt={4}>
-          <VStack spacing={2}>
-            <Button
-              onClick={onLoadMore}
-              colorScheme="purple"
-              variant="outline"
-              size="lg"
-              isDisabled={isLoadingMore}
-            >
-              Load More DEXes
-            </Button>
-            {currentBatch && totalBatches && (
-              <Text fontSize="xs" color="gray.500">
-                Loaded {currentBatch} of {totalBatches} batches
+      {/* Background loading indicator */}
+      {backgroundLoading && (
+        <Box py={4}>
+          <VStack spacing={3}>
+            <HStack justify="center" spacing={3}>
+              <Spinner size="sm" color="purple.500" />
+              <Text fontSize="sm" color="gray.600">
+                Loading more DEXes with AI fee data in background...
               </Text>
-            )}
+            </HStack>
+            <Progress 
+              value={progress} 
+              size="sm" 
+              colorScheme="purple" 
+              width="200px" 
+              borderRadius="md"
+            />
           </VStack>
         </Box>
       )}
 
+      {/* Load more button for filtered results */}
+      {hasMore && onLoadMore && !backgroundLoading && (
+        <Box textAlign="center" pt={4}>
+          <Button
+            onClick={onLoadMore}
+            colorScheme="purple"
+            variant="outline"
+            size="lg"
+          >
+            Show More Results
+          </Button>
+        </Box>
+      )}
+
       {/* All loaded message */}
-      {!hasMore && dexes.length > 8 && (
+      {!backgroundLoading && !hasMore && dexes.length > 10 && (
         <Box textAlign="center" py={4}>
           <Text fontSize="sm" color="gray.500">
-            All DEXes loaded ({dexes.length} total)
+            Showing all {dexes.length} DEXes
           </Text>
         </Box>
       )}
