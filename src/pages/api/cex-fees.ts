@@ -3,6 +3,7 @@ import { fetchCombinedExchangeData } from '@/lib/api/coinmarketcap';
 import { normalizeCombinedExchangeData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
 import { CEX_CACHE_DURATION, CEX_CACHE_DURATION_SECONDS } from '@/config/constants';
+import { generateCacheHeaders, isCacheValid, logCacheOperation } from '@/lib/utils/cache-optimizer';
 
 // Get cache hours for logging
 const CEX_CACHE_HOURS = parseInt(process.env.CEX_CACHE_HOURS || '72', 10);
@@ -61,11 +62,18 @@ export default async function handler(
 
   try {
     // Check cache for complete AI-enhanced data (configurable cache)
-    if (global.cexCompleteCache && Date.now() - global.cexCompleteCache.timestamp < CEX_CACHE_DURATION) {
-      console.log('✓ Serving CEX data from cache');
+    if (global.cexCompleteCache && isCacheValid(global.cexCompleteCache.timestamp, CEX_CACHE_DURATION)) {
+      logCacheOperation('hit', 'cex', { batch: batchNum, totalExchanges: global.cexCompleteCache.data.length });
+      
       const startIndex = (batchNum - 1) * size;
       const endIndex = startIndex + size;
       const batchData = global.cexCompleteCache.data.slice(startIndex, endIndex);
+      
+      // Set optimized cache headers
+      const headers = generateCacheHeaders('cex', false);
+      Object.entries(headers).forEach(([key, value]) => {
+        res.setHeader(key, value);
+      });
       
       return res.status(200).json({
         data: batchData,
@@ -78,7 +86,7 @@ export default async function handler(
     }
 
     // Cache expired or doesn't exist - rebuild complete dataset with AI
-    console.log('⚡ Cache expired/missing - rebuilding complete CEX dataset with AI...');
+    logCacheOperation('miss', 'cex', { reason: 'Cache expired or missing' });
 
     // Check if API key is configured
     if (!process.env.COINMARKETCAP_API_KEY) {
@@ -212,13 +220,11 @@ export default async function handler(
     const endIndex = startIndex + size;
     const batchData = normalizedData.slice(startIndex, endIndex);
 
-    // Set cache headers - prevent CDN caching for dynamic content
-    res.setHeader(
-      'Cache-Control',
-      'private, no-cache, no-store, must-revalidate'
-    );
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    // Set optimized cache headers for fresh data
+    const headers = generateCacheHeaders('cex', false);
+    Object.entries(headers).forEach(([key, value]) => {
+      res.setHeader(key, value);
+    });
 
     const totalBatches = Math.ceil(normalizedData.length / size);
     const hasMore = endIndex < normalizedData.length;

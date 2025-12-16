@@ -2,6 +2,7 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { normalizeDEXData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
 import { DEX_CACHE_DURATION, DEX_CACHE_DURATION_SECONDS } from '@/config/constants';
+import { generateCacheHeaders, isCacheValid, logCacheOperation } from '@/lib/utils/cache-optimizer';
 
 // Get cache hours for logging
 const DEX_CACHE_HOURS = parseInt(process.env.DEX_CACHE_HOURS || '72', 10);
@@ -59,11 +60,18 @@ export default async function handler(
 
   try {
     // Check cache for complete AI-enhanced DEX data (configurable cache)
-    if (global.dexCompleteCache && Date.now() - global.dexCompleteCache.timestamp < DEX_CACHE_DURATION) {
-      console.log(`✓ Serving DEX data from cache`);
+    if (global.dexCompleteCache && isCacheValid(global.dexCompleteCache.timestamp, DEX_CACHE_DURATION)) {
+      logCacheOperation('hit', 'dex', { batch: batchNum, totalDEXes: global.dexCompleteCache.data.length });
+      
       const startIndex = (batchNum - 1) * size;
       const endIndex = startIndex + size;
       const batchData = global.dexCompleteCache.data.slice(startIndex, endIndex);
+      
+      // Set optimized cache headers
+      const headers = generateCacheHeaders('dex', false);
+      Object.entries(headers).forEach(([key, value]) => {
+        res.setHeader(key, value);
+      });
       
       return res.status(200).json({
         data: batchData,
@@ -76,7 +84,7 @@ export default async function handler(
     }
 
     // Cache expired or doesn't exist - rebuild complete DEX dataset with AI
-    console.log('⚡ Cache expired/missing - rebuilding complete DEX dataset with AI...');
+    logCacheOperation('miss', 'dex', { reason: 'Cache expired or missing' });
 
     // Fetch real DEX data from APIs
     const rawDEXData = await fetchCombinedDEXData();
@@ -192,13 +200,11 @@ export default async function handler(
     const endIndex = startIndex + size;
     const batchData = normalizedData.slice(startIndex, endIndex);
 
-    // Set cache headers - prevent CDN caching for dynamic content
-    res.setHeader(
-      'Cache-Control',
-      'private, no-cache, no-store, must-revalidate'
-    );
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
+    // Set optimized cache headers for fresh data
+    const headers = generateCacheHeaders('dex', false);
+    Object.entries(headers).forEach(([key, value]) => {
+      res.setHeader(key, value);
+    });
 
     const totalBatches = Math.ceil(normalizedData.length / size);
     const hasMore = endIndex < normalizedData.length;

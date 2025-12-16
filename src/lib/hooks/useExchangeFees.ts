@@ -20,8 +20,9 @@ export function useExchangeFees() {
   const { data: firstBatch, error, isLoading } = useSWR('/api/cex-fees?batch=1&batchSize=10', fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
-    refreshInterval: CEX_CACHE_DURATION, // Configurable CEX cache duration
-    dedupingInterval: 60000,
+    refreshInterval: 0, // Disable automatic refresh - rely on server cache
+    dedupingInterval: CEX_CACHE_DURATION, // Use cache duration for deduping
+    revalidateIfStale: false, // Don't revalidate stale data automatically
   });
 
   // Background loading of remaining batches
@@ -101,8 +102,9 @@ export function useDEXFees() {
   const { data: firstBatch, error, isLoading } = useSWR('/api/dex-fees?batch=1&batchSize=10', fetcher, {
     revalidateOnFocus: false,
     revalidateOnReconnect: false,
-    refreshInterval: DEX_CACHE_DURATION, // Configurable DEX cache duration
-    dedupingInterval: 60000,
+    refreshInterval: 0, // Disable automatic refresh - rely on server cache
+    dedupingInterval: DEX_CACHE_DURATION, // Use cache duration for deduping
+    revalidateIfStale: false, // Don't revalidate stale data automatically
   });
 
   // Background loading of remaining batches
@@ -168,28 +170,29 @@ export function useDEXFees() {
   };
 }
 
-/**
- * Hook to fetch exchange fees with custom configuration
- */
-export function useExchangeFeesWithConfig(config?: {
-  refreshInterval?: number;
-  revalidateOnFocus?: boolean;
-}) {
-  const { data, error, isLoading, mutate } = useSWR('/api/cex-fees', fetcher, {
-    revalidateOnFocus: config?.revalidateOnFocus ?? false,
-    revalidateOnReconnect: false,
-    refreshInterval: config?.refreshInterval ?? CEX_CACHE_DURATION,
-    dedupingInterval: 60000,
-    errorRetryCount: 3,
-    errorRetryInterval: 5000,
-  });
+// /**
+//  * Hook to fetch exchange fees with custom configuration
+//  */
+// export function useExchangeFeesWithConfig(config?: {
+//   refreshInterval?: number;
+//   revalidateOnFocus?: boolean;
+// }) {
+//   const { data, error, isLoading, mutate } = useSWR('/api/cex-fees', fetcher, {
+//     revalidateOnFocus: config?.revalidateOnFocus ?? false,
+//     revalidateOnReconnect: false,
+//     refreshInterval: config?.refreshInterval ?? 0, // Disable by default
+//     dedupingInterval: CEX_CACHE_DURATION, // Use cache duration for deduping
+//     revalidateIfStale: false,
+//     errorRetryCount: 3,
+//     errorRetryInterval: 5000,
+//   });
 
-  return {
-    exchanges: data?.data as CEXFees[] | undefined,
-    isLoading,
-    isError: error,
-    cachedAt: data?.cachedAt,
-    isCached: data?.cached,
-    refresh: mutate,
-  };
-}
+//   return {
+//     exchanges: data?.data as CEXFees[] | undefined,
+//     isLoading,
+//     isError: error,
+//     cachedAt: data?.cachedAt,
+//     isCached: data?.cached,
+//     refresh: mutate,
+//   };
+// }

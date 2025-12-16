@@ -3,6 +3,7 @@ import { fetchCombinedExchangeData } from '@/lib/api/coinmarketcap';
 import { normalizeCombinedExchangeData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
 import { fetchCEXFeesFromAI, mergeCEXFeeData } from '@/lib/api/gemini';
+import { CEX_CACHE_DURATION, CEX_CACHE_DURATION_SECONDS } from '@/config/constants';
 
 /**
  * CEX Fees Batch API Route
@@ -10,8 +11,6 @@ import { fetchCEXFeesFromAI, mergeCEXFeeData } from '@/lib/api/gemini';
  * Loads additional batches of exchanges with AI fee data
  * Used for progressive loading after initial batch
  */
-
-import { CEX_CACHE_DURATION, CEX_CACHE_DURATION_SECONDS } from '@/config/constants';
 
 // Shared cache with main API
 declare global {
@@ -51,13 +50,12 @@ export default async function handler(
         });
       }
 
-      // Set cache headers - prevent CDN caching for batch API
+      // Set cache headers optimized for Netlify CDN
       res.setHeader(
         'Cache-Control',
-        'private, no-cache, no-store, must-revalidate'
+        `public, s-maxage=${CEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${CEX_CACHE_DURATION_SECONDS * 2}`
       );
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
+      res.setHeader('Netlify-CDN-Cache-Control', `public, max-age=${CEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${CEX_CACHE_DURATION_SECONDS * 2}`);
 
       const totalBatches = Math.ceil(global.cexCompleteCache.data.length / size);
       const hasMore = endIndex < global.cexCompleteCache.data.length;

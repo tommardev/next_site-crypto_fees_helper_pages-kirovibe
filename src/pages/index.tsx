@@ -7,6 +7,7 @@ import { FeeDataStatus } from '@/components/common/FeeDataStatus';
 import { useExchangeFees } from '@/lib/hooks/useExchangeFees';
 import { useCEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
+import { CacheMonitor } from '@/components/common/CacheMonitor';
 
 export default function HomePage() {
   const { 
@@ -60,6 +61,9 @@ export default function HomePage() {
           <Text fontSize="sm" color="gray.500" mt={2}>
             💡 Tip: Lower fees mean more profit on your trades. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'Exchanges load progressively with AI-powered fee data.'}
           </Text>
+          
+          {/* Cache Monitor - Development Only */}
+          <CacheMonitor />
         </Box>
 
         {/* Error handling */}

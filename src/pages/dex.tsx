@@ -7,6 +7,7 @@ import { FeeDataStatus } from '@/components/common/FeeDataStatus';
 import { useDEXFees } from '@/lib/hooks/useExchangeFees';
 import { useDEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
+import { CacheMonitor } from '@/components/common/CacheMonitor';
 
 export default function DEXPage() {
   const { 
@@ -60,6 +61,9 @@ export default function DEXPage() {
           <Text fontSize="sm" color="gray.500" mt={2}>
             💡 Tip: DEX fees include swap fees + gas fees. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'DEXes load progressively with AI-powered fee data.'}
           </Text>
+          
+          {/* Cache Monitor - Development Only */}
+          <CacheMonitor />
         </Box>
 
         {/* Error handling */}

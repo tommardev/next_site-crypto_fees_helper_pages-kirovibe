@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { handleAPIError } from '@/lib/api/error-handler';
+import { DEX_CACHE_DURATION, DEX_CACHE_DURATION_SECONDS } from '@/config/constants';
 
 /**
  * DEX Fees Batch API Route
@@ -7,8 +8,6 @@ import { handleAPIError } from '@/lib/api/error-handler';
  * Loads additional batches of DEXes with AI fee data
  * Used for progressive loading after initial batch
  */
-
-import { DEX_CACHE_DURATION } from '@/config/constants';
 
 // Shared cache with main DEX API
 declare global {
@@ -48,13 +47,12 @@ export default async function handler(
         });
       }
 
-      // Set cache headers - prevent CDN caching for batch API
+      // Set cache headers optimized for Netlify CDN
       res.setHeader(
         'Cache-Control',
-        'private, no-cache, no-store, must-revalidate'
+        `public, s-maxage=${DEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${DEX_CACHE_DURATION_SECONDS * 2}`
       );
-      res.setHeader('Pragma', 'no-cache');
-      res.setHeader('Expires', '0');
+      res.setHeader('Netlify-CDN-Cache-Control', `public, max-age=${DEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${DEX_CACHE_DURATION_SECONDS * 2}`);
 
       const totalBatches = Math.ceil(global.dexCompleteCache.data.length / size);
       const hasMore = endIndex < global.dexCompleteCache.data.length;
