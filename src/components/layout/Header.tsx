@@ -15,6 +15,7 @@ import {
 } from '@chakra-ui/react';
 import { MoonIcon, SunIcon, HamburgerIcon } from '@chakra-ui/icons';
 import NextLink from 'next/link';
+import { RealtimeIndicator } from '../common/RealtimeIndicator';
 
 export function Header() {
   const { colorMode, toggleColorMode } = useColorMode();
@@ -64,6 +65,9 @@ export function Header() {
           </HStack>
 
           <HStack spacing={2}>
+            {/* Real-time status indicator */}
+            <RealtimeIndicator showDetails={false} />
+            
             <IconButton
               aria-label="Toggle color mode"
               icon={colorMode === 'light' ? <MoonIcon /> : <SunIcon />}

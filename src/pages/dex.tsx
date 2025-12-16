@@ -19,7 +19,9 @@ export default function DEXPage() {
     isCached,
     totalBatches,
     loadedBatches,
-    progress
+    progress,
+    aiProcessingComplete,
+    refreshData
   } = useDEXFees();
   
   const {
@@ -62,6 +64,13 @@ export default function DEXPage() {
             💡 Tip: DEX fees include swap fees + gas fees. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'DEXes load progressively with AI-powered fee data.'}
           </Text>
           
+          {/* AI Processing Complete Notification */}
+          {aiProcessingComplete && (
+            <Badge colorScheme="green" fontSize="sm" mt={2}>
+              🎉 DEX fee data updated with AI enhancement! Refresh to see latest data.
+            </Badge>
+          )}
+          
           {/* Cache Monitor - Development Only */}
           <CacheMonitor />
         </Box>
@@ -76,7 +85,12 @@ export default function DEXPage() {
 
         {/* Fee Data Status */}
         {!isError && dexes && (
-          <FeeDataStatus exchanges={dexes} isLoading={isLoading} type="dex" />
+          <FeeDataStatus 
+            exchanges={dexes} 
+            isLoading={isLoading} 
+            type="dex"
+            backgroundLoading={backgroundLoading}
+          />
         )}
 
         {/* Filters */}

@@ -18,6 +18,8 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   const dexCache = (global as any).dexCompleteCache;
   const lastAIError = (global as any).lastAIError;
   const lastDEXAIError = (global as any).lastDEXAIError;
+  const cexProcessing = (global as any).cexAIProcessing || false;
+  const dexProcessing = (global as any).dexAIProcessing || false;
   
   let enhancedExchanges = 0;
   let totalExchanges = 0;
@@ -41,8 +43,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
   return res.status(200).json({
     geminiConfigured: hasGeminiKey,
     cmcConfigured: hasCMCKey,
+    cexProcessing,
+    dexProcessing,
     cex: {
       cacheExists: !!cexCache,
+      processing: cexProcessing,
       totalExchanges,
       enhancedExchanges,
       enhancementRate: totalExchanges > 0 ? (enhancedExchanges / totalExchanges * 100).toFixed(1) + '%' : '0%',
@@ -51,6 +56,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     },
     dex: {
       cacheExists: !!dexCache,
+      processing: dexProcessing,
       totalDEXes,
       enhancedDEXes,
       enhancementRate: totalDEXes > 0 ? (enhancedDEXes / totalDEXes * 100).toFixed(1) + '%' : '0%',

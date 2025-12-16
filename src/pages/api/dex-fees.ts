@@ -1,8 +1,9 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { normalizeDEXData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
-import { DEX_CACHE_DURATION, DEX_CACHE_DURATION_SECONDS } from '@/config/constants';
+import { DEX_CACHE_DURATION } from '@/config/constants';
 import { generateCacheHeaders, isCacheValid, logCacheOperation } from '@/lib/utils/cache-optimizer';
+import { broadcastFeeUpdate, broadcastAIStatusChange } from './sse-updates';
 
 // Get cache hours for logging
 const DEX_CACHE_HOURS = parseInt(process.env.DEX_CACHE_HOURS || '72', 10);
@@ -116,6 +117,9 @@ export default async function handler(
         global.dexAIProcessing = true;
         console.log(`🚀 Starting background DEX AI enhancement for ${normalizedData.length} DEXes...`);
         
+        // Broadcast DEX AI processing started
+        broadcastAIStatusChange('dex', true);
+        
         // Background AI processing (async, no await) - Sequential with delays
         (async () => {
           try {
@@ -170,12 +174,17 @@ export default async function handler(
             
             console.log(`🎉 Background DEX AI enhancement complete - cached for ${DEX_CACHE_HOURS} hours`);
             global.lastDEXAIError = null; // Clear error on success
+            
+            // Broadcast DEX fee update to all connected clients
+            broadcastFeeUpdate('dex', completeDataWithAI);
           } catch (aiError) {
             const errorMessage = aiError instanceof Error ? aiError.message : 'Unknown DEX AI error';
             console.error('Background DEX AI enhancement failed:', errorMessage);
             global.lastDEXAIError = errorMessage;
           } finally {
             global.dexAIProcessing = false;
+            // Broadcast DEX AI processing completed
+            broadcastAIStatusChange('dex', false);
           }
         })();
       }

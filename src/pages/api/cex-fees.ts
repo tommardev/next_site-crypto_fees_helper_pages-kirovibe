@@ -2,8 +2,9 @@ import { NextApiRequest, NextApiResponse } from 'next';
 import { fetchCombinedExchangeData } from '@/lib/api/coinmarketcap';
 import { normalizeCombinedExchangeData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
-import { CEX_CACHE_DURATION, CEX_CACHE_DURATION_SECONDS } from '@/config/constants';
+import { CEX_CACHE_DURATION } from '@/config/constants';
 import { generateCacheHeaders, isCacheValid, logCacheOperation } from '@/lib/utils/cache-optimizer';
+import { broadcastFeeUpdate, broadcastAIStatusChange } from './sse-updates';
 
 // Get cache hours for logging
 const CEX_CACHE_HOURS = parseInt(process.env.CEX_CACHE_HOURS || '72', 10);
@@ -126,6 +127,9 @@ export default async function handler(
         global.cexAIProcessing = true;
         console.log(`🚀 Starting background AI enhancement for ${normalizedData.length} exchanges...`);
         
+        // Broadcast AI processing started
+        broadcastAIStatusChange('cex', true);
+        
         // Background AI processing (async, no await) - Sequential with delays
         (async () => {
           try {
@@ -190,12 +194,17 @@ export default async function handler(
             
             console.log(`🎉 Background AI enhancement complete - cached for ${CEX_CACHE_HOURS} hours`);
             global.lastAIError = null; // Clear error on success
+            
+            // Broadcast fee update to all connected clients
+            broadcastFeeUpdate('cex', completeDataWithAI);
           } catch (aiError) {
             const errorMessage = aiError instanceof Error ? aiError.message : 'Unknown AI error';
             console.error('Background AI enhancement failed:', errorMessage);
             global.lastAIError = errorMessage;
           } finally {
             global.cexAIProcessing = false;
+            // Broadcast AI processing completed
+            broadcastAIStatusChange('cex', false);
           }
         })();
       }

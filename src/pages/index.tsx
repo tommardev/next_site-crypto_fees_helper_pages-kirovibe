@@ -19,7 +19,9 @@ export default function HomePage() {
     isCached,
     totalBatches,
     loadedBatches,
-    progress
+    progress,
+    aiProcessingComplete,
+    refreshData
   } = useExchangeFees();
   
   const {
@@ -62,6 +64,13 @@ export default function HomePage() {
             💡 Tip: Lower fees mean more profit on your trades. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'Exchanges load progressively with AI-powered fee data.'}
           </Text>
           
+          {/* AI Processing Complete Notification */}
+          {aiProcessingComplete && (
+            <Badge colorScheme="green" fontSize="sm" mt={2}>
+              🎉 Fee data updated with AI enhancement! Refresh to see latest data.
+            </Badge>
+          )}
+          
           {/* Cache Monitor - Development Only */}
           <CacheMonitor />
         </Box>
@@ -76,7 +85,12 @@ export default function HomePage() {
 
         {/* Fee Data Status */}
         {!isError && exchanges && (
-          <FeeDataStatus exchanges={exchanges} isLoading={isLoading} />
+          <FeeDataStatus 
+            exchanges={exchanges} 
+            isLoading={isLoading} 
+            type="cex"
+            backgroundLoading={backgroundLoading}
+          />
         )}
 
         {/* Filters */}

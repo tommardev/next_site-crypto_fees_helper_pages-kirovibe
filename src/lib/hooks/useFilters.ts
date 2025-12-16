@@ -7,10 +7,12 @@ export function useCEXFilters(exchanges: CEXFees[] | undefined) {
   const [showCount, setShowCount] = useState(20);
 
   const filteredAndSorted = useMemo(() => {
-    if (!exchanges) return [];
+    if (!exchanges || exchanges.length === 0) return [];
 
-    // Filter by search query
-    let filtered = exchanges.filter(exchange =>
+    // Filter by search query (handle undefined/null exchanges)
+    let filtered = exchanges.filter(exchange => 
+      exchange && 
+      exchange.exchangeName && 
       exchange.exchangeName.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
@@ -87,10 +89,12 @@ export function useDEXFilters(dexes: DEXFees[] | undefined) {
   const [showCount, setShowCount] = useState(20);
 
   const filteredAndSorted = useMemo(() => {
-    if (!dexes) return [];
+    if (!dexes || dexes.length === 0) return [];
 
-    // Filter by search query
-    let filtered = dexes.filter(dex =>
+    // Filter by search query (handle undefined/null dexes)
+    let filtered = dexes.filter(dex => 
+      dex && 
+      dex.dexName && 
       dex.dexName.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
