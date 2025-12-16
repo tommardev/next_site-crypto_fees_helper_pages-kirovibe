@@ -23,12 +23,14 @@ import { fetchCEXFeesFromAI, mergeCEXFeeData } from '@/lib/api/gemini';
  * 4. Cache for 24 hours to respect API limits
  */
 
-// In-memory cache for complete AI-enhanced data (24-hour cache)
-let completeCache: { data: any; timestamp: number } | null = null;
+// Use global cache for consistency across API routes
+declare global {
+  var cexCompleteCache: { data: any; timestamp: number } | null;
+}
 
-// Make cache available globally for batch API
-if (typeof global !== 'undefined') {
-  global.cexCompleteCache = completeCache;
+// Initialize global cache if not exists
+if (typeof global !== 'undefined' && !global.cexCompleteCache) {
+  global.cexCompleteCache = null;
 }
 
 export default async function handler(
@@ -45,19 +47,19 @@ export default async function handler(
 
   try {
     // Check cache for complete AI-enhanced data (configurable cache)
-    if (completeCache && Date.now() - completeCache.timestamp < CEX_CACHE_DURATION) {
-      console.log('✓ Serving CEX data from 24-hour cache');
+    if (global.cexCompleteCache && Date.now() - global.cexCompleteCache.timestamp < CEX_CACHE_DURATION) {
+      console.log('✓ Serving CEX data from cache');
       const startIndex = (batchNum - 1) * size;
       const endIndex = startIndex + size;
-      const batchData = completeCache.data.slice(startIndex, endIndex);
+      const batchData = global.cexCompleteCache.data.slice(startIndex, endIndex);
       
       return res.status(200).json({
         data: batchData,
         cached: true,
-        cachedAt: new Date(completeCache.timestamp).toISOString(),
+        cachedAt: new Date(global.cexCompleteCache.timestamp).toISOString(),
         batch: batchNum,
-        totalBatches: Math.ceil(completeCache.data.length / size),
-        hasMore: endIndex < completeCache.data.length,
+        totalBatches: Math.ceil(global.cexCompleteCache.data.length / size),
+        hasMore: endIndex < global.cexCompleteCache.data.length,
       });
     }
 
@@ -87,15 +89,10 @@ export default async function handler(
       const firstBatchData = normalizedData.slice(startIndex, endIndex);
 
       // Cache placeholder data temporarily
-      completeCache = {
+      global.cexCompleteCache = {
         data: normalizedData,
         timestamp: Date.now(),
       };
-      
-      // Update global cache for batch API access
-      if (typeof global !== 'undefined') {
-        global.cexCompleteCache = completeCache;
-      }
 
       // Start AI enhancement in background (don't await)
       if (process.env.GEMINI_API_KEY && normalizedData.length > 0) {
@@ -125,14 +122,10 @@ export default async function handler(
             }
             
             // Update cache with AI-enhanced data
-            completeCache = {
+            global.cexCompleteCache = {
               data: completeDataWithAI,
               timestamp: Date.now(),
             };
-            
-            if (typeof global !== 'undefined') {
-              global.cexCompleteCache = completeCache;
-            }
             
             console.log(`🎉 Background AI enhancement complete - cached for ${CEX_CACHE_HOURS} hours`);
           } catch (aiError) {
@@ -161,11 +154,13 @@ export default async function handler(
     const endIndex = startIndex + size;
     const batchData = normalizedData.slice(startIndex, endIndex);
 
-    // Set cache headers for CDN/browser caching (configurable duration)
+    // Set cache headers - prevent CDN caching for dynamic content
     res.setHeader(
       'Cache-Control',
-      `public, s-maxage=${CEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${CEX_CACHE_DURATION_SECONDS * 2}`
+      'private, no-cache, no-store, must-revalidate'
     );
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     const totalBatches = Math.ceil(normalizedData.length / size);
     const hasMore = endIndex < normalizedData.length;

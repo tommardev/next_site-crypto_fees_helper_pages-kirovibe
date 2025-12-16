@@ -1,8 +1,5 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { normalizeDEXData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
-import { fetchCombinedDEXData } from '@/lib/api/coinmarketcap';
-import { fetchDEXFeesFromAI, mergeDEXFeeData } from '@/lib/api/gemini';
 
 /**
  * DEX Fees Batch API Route
@@ -11,7 +8,7 @@ import { fetchDEXFeesFromAI, mergeDEXFeeData } from '@/lib/api/gemini';
  * Used for progressive loading after initial batch
  */
 
-import { DEX_CACHE_DURATION, DEX_CACHE_DURATION_SECONDS } from '@/config/constants';
+import { DEX_CACHE_DURATION } from '@/config/constants';
 
 // Shared cache with main DEX API
 declare global {
@@ -33,11 +30,13 @@ export default async function handler(
   try {
     // Check if complete DEX cache exists and is valid
     if (global.dexCompleteCache && Date.now() - global.dexCompleteCache.timestamp < DEX_CACHE_DURATION) {
-      console.log(`✓ Serving DEX batch ${batchNum} from ${parseInt(process.env.DEX_CACHE_HOURS || '72', 10)}-hour cache`);
+      console.log(`✓ Serving DEX batch ${batchNum} from cache (${global.dexCompleteCache.data.length} total DEXes)`);
       
       const startIndex = (batchNum - 1) * size;
       const endIndex = startIndex + size;
       const batchData = global.dexCompleteCache.data.slice(startIndex, endIndex);
+      
+      console.log(`📊 DEX Batch ${batchNum}: indices ${startIndex}-${endIndex}, returning ${batchData.length} DEXes`);
 
       if (batchData.length === 0) {
         return res.status(200).json({
@@ -49,11 +48,13 @@ export default async function handler(
         });
       }
 
-      // Set cache headers (configurable duration)
+      // Set cache headers - prevent CDN caching for batch API
       res.setHeader(
         'Cache-Control',
-        `public, s-maxage=${DEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${DEX_CACHE_DURATION_SECONDS * 2}`
+        'private, no-cache, no-store, must-revalidate'
       );
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
 
       const totalBatches = Math.ceil(global.dexCompleteCache.data.length / size);
       const hasMore = endIndex < global.dexCompleteCache.data.length;
