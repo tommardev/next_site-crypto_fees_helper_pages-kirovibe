@@ -1,0 +1,61 @@
+[build]
+  command = "npm run build"
+  publish = "out"
+
+# Optimize API route caching for better performance
+[[headers]]
+  for = "/api/*"
+  [headers.values]
+    # Enable CORS for API routes
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type"
+    
+    # Optimize caching for API responses
+    Vary = "Accept-Encoding"
+
+# Cache static assets aggressively
+[[headers]]
+  for = "/_next/static/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/logos/*"
+  [headers.values]
+    Cache-Control = "public, max-age=86400"
+
+# API route specific caching
+[[headers]]
+  for = "/api/cex-fees*"
+  [headers.values]
+    # Let the API route set its own cache headers
+    Cache-Control = "public, s-maxage=259200, stale-while-revalidate=518400"
+
+[[headers]]
+  for = "/api/dex-fees*"
+  [headers.values]
+    # Let the API route set its own cache headers
+    Cache-Control = "public, s-maxage=259200, stale-while-revalidate=518400"
+
+# Redirect rules for SPA behavior
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+  conditions = {Role = ["admin"]}
+
+# Environment-specific settings
+[context.production.environment]
+  NODE_ENV = "production"
+
+[context.deploy-preview.environment]
+  NODE_ENV = "development"
+
+# Function settings for API routes
+[functions]
+  # Increase timeout for AI processing
+  timeout = 300
+  
+  # Memory allocation for heavy processing
+  memory = 1024
