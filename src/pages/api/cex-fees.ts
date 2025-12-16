@@ -26,11 +26,17 @@ import { fetchCEXFeesFromAI, mergeCEXFeeData } from '@/lib/api/gemini';
 // Use global cache for consistency across API routes
 declare global {
   var cexCompleteCache: { data: any; timestamp: number } | null;
+  var cexAIProcessing: boolean;
 }
 
 // Initialize global cache if not exists
-if (typeof global !== 'undefined' && !global.cexCompleteCache) {
-  global.cexCompleteCache = null;
+if (typeof global !== 'undefined') {
+  if (!global.cexCompleteCache) {
+    global.cexCompleteCache = null;
+  }
+  if (global.cexAIProcessing === undefined) {
+    global.cexAIProcessing = false;
+  }
 }
 
 export default async function handler(
@@ -94,8 +100,9 @@ export default async function handler(
         timestamp: Date.now(),
       };
 
-      // Start AI enhancement in background (don't await)
-      if (process.env.GEMINI_API_KEY && normalizedData.length > 0) {
+      // Start AI enhancement in background (don't await) - only if not already processing
+      if (process.env.GEMINI_API_KEY && normalizedData.length > 0 && !global.cexAIProcessing) {
+        global.cexAIProcessing = true;
         console.log(`🚀 Starting background AI enhancement for ${normalizedData.length} exchanges...`);
         
         // Background AI processing (async, no await)
@@ -130,6 +137,8 @@ export default async function handler(
             console.log(`🎉 Background AI enhancement complete - cached for ${CEX_CACHE_HOURS} hours`);
           } catch (aiError) {
             console.error('Background AI enhancement failed:', aiError);
+          } finally {
+            global.cexAIProcessing = false;
           }
         })();
       }
