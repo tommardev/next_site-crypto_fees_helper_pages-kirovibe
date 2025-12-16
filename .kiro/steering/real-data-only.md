@@ -1,19 +1,21 @@
 # Real Data Only Policy - MANDATORY
 
-## Core Principle: Never Use Fake or Hardcoded Data
+## Core Principle: Never Use Fake or Hardcoded Data - Use AI for Real Fee Collection
 
-**CRITICAL: Always use real data from actual API endpoints. Never create fake, mock, or hardcoded data.**
+**CRITICAL: Always use real data from actual API endpoints. Use AI to collect real fee data. Never create fake, mock, or hardcoded data.**
 
 ## Strict Rules
 
 ### ✅ ALWAYS DO:
 - **Verify API endpoints exist** before implementing
 - **Test API responses** to confirm data structure
+- **Use AI (Gemini) to collect real fee data** from official sources
 - **Ask user for clarification** if API endpoint is unclear
-- **Use null/undefined** for missing data instead of fake values
+- **Use null/undefined** for missing data until AI enhancement completes
 - **Implement proper error handling** when real data is unavailable
 - **Use placeholder text** like "Data not available" instead of fake names
 - **Validate API responses** match expected interface structure
+- **Implement background AI processing** with circuit breaker protection
 
 ### ❌ NEVER DO:
 - Create fake exchange names, fees, or volumes
@@ -23,6 +25,8 @@
 - Create fake URLs, logos, or contact information
 - Use made-up API responses for testing
 - Hardcode business logic with fake values
+- Block main API response waiting for AI enhancement
+- Skip circuit breaker protection for AI calls
 
 ## Acceptable Constants (ONLY)
 
@@ -68,14 +72,18 @@ const FOOTER_LINKS = [{ name: "Privacy", url: "/privacy" }];
 
 ### Correct Data Fetching:
 ```typescript
-// CORRECT: Real API data with proper error handling
+// CORRECT: Real API data with AI enhancement and proper error handling
 export async function fetchExchangeFees() {
   try {
-    const response = await fetch('/api/cex-fees');
+    const response = await fetch('/api/cex-fees?batch=1&batchSize=20');
     const data = await response.json();
-    return data.exchanges; // Real data from API
+    return {
+      exchanges: data.data, // Real data from multiple APIs
+      backgroundProcessing: data.backgroundProcessing, // AI enhancement status
+      cached: data.cached
+    };
   } catch (error) {
-    return []; // Empty array, not fake data
+    return { exchanges: [], backgroundProcessing: false, cached: false }; // Empty array, not fake data
   }
 }
 ```
@@ -106,20 +114,23 @@ const mockResponse = { exchanges: [...] }; // NEVER DO THIS
 ## When Data is Unavailable
 
 ### Proper Handling:
-- **Use null/undefined**: `makerFee: null` instead of `makerFee: 0.1`
-- **Show "Not available"**: Display proper messaging
-- **Implement placeholders**: Use skeleton loaders
+- **Use null/undefined**: `makerFee: null` until AI enhancement completes
+- **Show "AI collecting data"**: Display AI processing status
+- **Implement placeholders**: Use skeleton loaders with AI status
 - **Ask for real source**: "Which API should I use for this data?"
+- **Use AI to research**: Let Gemini AI collect real fee data from official sources
 
 ### Error Messages:
 ```typescript
-// CORRECT: Honest error messages
-"Exchange fee data is currently unavailable"
+// CORRECT: Honest error messages with AI context
+"Exchange fee data is currently unavailable - AI enhancement in progress"
 "API rate limit exceeded, please try again later"
 "Unable to connect to data source"
+"AI fee collection temporarily unavailable"
 
 // WRONG: Fake success
 "Showing sample data" // NEVER imply fake data is real
+"Using estimated fees" // NEVER imply fake data is real
 ```
 
 ## Verification Process

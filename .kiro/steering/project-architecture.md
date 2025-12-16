@@ -6,12 +6,13 @@ inclusion: always
 
 ## Core Technology Stack
 
-**Next.js 14+ (Pages Router) + TypeScript + Chakra UI + SWR**
+Next.js 16+ (Pages Router) + TypeScript + Chakra UI + SWR + Gemini AI
 
-- **Primary Data Source**: CoinMarketCap API (real fee data)
+- **Data Sources**: CoinMarketCap (rankings), CoinGecko (trust scores), DeFiLlama (DEX data), Gemini AI (fee data)
 - **UI Framework**: Chakra UI v2+ with built-in dark mode
-- **Data Fetching**: SWR with 24-hour caching
-- **Deployment**: Static export for Vercel/Netlify
+- **Data Fetching**: SWR with configurable 72-hour caching
+- **AI Enhancement**: Google Gemini 2.5 Flash for real fee data collection
+- **Deployment**: Serverless functions with CDN caching
 
 ## Project Structure (MANDATORY)
 
@@ -20,21 +21,27 @@ src/
 ├── pages/
 │   ├── index.tsx          # CEX fees main page
 │   ├── dex.tsx            # DEX fees page
+│   ├── about.tsx          # About page
+│   ├── contact.tsx        # Contact page
 │   ├── api/
-│   │   ├── cex-fees.ts    # Primary API route
-│   │   └── dex-fees.ts    # DEX API route
+│   │   ├── cex-fees.ts         # CEX API with AI enhancement
+│   │   ├── dex-fees.ts         # DEX API with AI enhancement
+│   │   ├── enhance-fees.ts     # Manual AI enhancement
+│   │   ├── cex-fees-batch.ts   # Batch CEX processing
+│   │   ├── dex-fees-batch.ts   # Batch DEX processing
+│   │   ├── cache-status.ts     # Cache monitoring
+│   │   └── ai-status.ts        # AI processing status
 ├── components/
-│   ├── exchange/          # Exchange-specific components
+│   ├── exchange/          # ExchangeCard, DEXCard, Grids, Filters
 │   ├── layout/            # Header, Footer, Layout
-│   └── common/            # ErrorBoundary, ErrorAlert
+│   └── common/            # ErrorBoundary, CacheMonitor, FeeDataStatus
 ├── lib/
-│   ├── api/               # coinmarketcap.ts, error-handler.ts
+│   ├── api/               # coinmarketcap.ts, coingecko.ts, gemini.ts
 │   ├── hooks/             # useExchangeFees.ts, useFilters.ts
 │   ├── types/             # exchange.ts, api.ts
-│   └── utils/             # formatters.ts, normalize.ts
+│   └── utils/             # normalize.ts, cache-optimizer.ts
 ├── config/
-│   ├── constants.ts       # App constants
-│   └── exchanges.ts       # Exchange configurations
+│   └── constants.ts       # App constants with configurable cache
 ```
 
 ## Architecture Principles
@@ -46,10 +53,12 @@ src/
 - **Single responsibility** - One concern per component
 
 ### Data Flow Pattern
-1. **API Routes** (`pages/api/`) fetch and cache data (24-hour TTL)
-2. **Custom Hooks** (`lib/hooks/`) use SWR for client-side caching
-3. **Components** consume hooks, handle loading/error states
-4. **Types** (`lib/types/`) define all interfaces first
+
+1. **API Routes** fetch metadata from CMC/CoinGecko (72-hour cache)
+2. **AI Enhancement** uses Gemini to collect real fee data in background
+3. **Batch Processing** handles large datasets with pagination
+4. **Custom Hooks** use SWR for client-side caching with batch loading
+5. **Components** consume hooks with loading/error states and real-time updates
 
 ### File Naming Conventions
 - **Components**: PascalCase (`ExchangeCard.tsx`)
@@ -60,16 +69,32 @@ src/
 ## Required Patterns
 
 ### API Route Structure
+
 ```typescript
-// 24-hour cache with error handling
-let cache: { data: any; timestamp: number } | null = null;
-const CACHE_DURATION = 24 * 60 * 60 * 1000;
+// Global cache with AI enhancement and batch support
+declare global {
+  var cexCompleteCache: { data: any; timestamp: number } | null;
+  var cexAIProcessing: boolean;
+}
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (cache && Date.now() - cache.timestamp < CACHE_DURATION) {
-    return res.status(200).json({ data: cache.data, cached: true });
+  const { batch = '1', batchSize = '10' } = req.query;
+  
+  // Check configurable cache (72 hours default)
+  if (global.cexCompleteCache && isCacheValid(global.cexCompleteCache.timestamp, CEX_CACHE_DURATION)) {
+    return res.status(200).json({ data: batchData, cached: true });
   }
-  // Fetch, cache, return with proper error handling
+  
+  // Fetch metadata, start AI enhancement in background
+  const rawData = await fetchCombinedExchangeData(50);
+  const normalizedData = rawData.map(normalizeCombinedExchangeData);
+  
+  // Background AI processing for fee data
+  if (process.env.GEMINI_API_KEY && !global.cexAIProcessing) {
+    enhanceWithAI(normalizedData); // Non-blocking
+  }
+  
+  return res.status(200).json({ data: batchData, backgroundProcessing: true });
 }
 ```
 
