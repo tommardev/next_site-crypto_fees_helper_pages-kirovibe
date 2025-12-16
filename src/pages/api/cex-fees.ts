@@ -28,6 +28,7 @@ declare global {
   var cexCompleteCache: { data: any; timestamp: number } | null;
   var cexAIProcessing: boolean;
   var lastAIError: string | null;
+  var geminiCircuitBreaker: { blocked: boolean; until: number } | null;
 }
 
 // Initialize global cache if not exists
@@ -40,6 +41,9 @@ if (typeof global !== 'undefined') {
   }
   if (global.lastAIError === undefined) {
     global.lastAIError = null;
+  }
+  if (global.geminiCircuitBreaker === undefined) {
+    global.geminiCircuitBreaker = null;
   }
 }
 
@@ -85,7 +89,7 @@ export default async function handler(
     }
 
     // Fetch combined data from CMC (volumes, rankings) + CoinGecko (trust scores)
-    const rawData = await fetchCombinedExchangeData(100);
+    const rawData = await fetchCombinedExchangeData(50);
     
     // Normalize data with placeholder fee values
     const normalizedData = rawData.map(normalizeCombinedExchangeData);
@@ -104,31 +108,69 @@ export default async function handler(
         timestamp: Date.now(),
       };
 
-      // Start AI enhancement in background (don't await) - only if not already processing
-      if (process.env.GEMINI_API_KEY && normalizedData.length > 0 && !global.cexAIProcessing) {
+      // Check circuit breaker before starting AI enhancement
+      const isCircuitBreakerActive = global.geminiCircuitBreaker && 
+        global.geminiCircuitBreaker.blocked && 
+        Date.now() < global.geminiCircuitBreaker.until;
+
+      // Start AI enhancement in background (don't await) - only if not already processing and circuit breaker is off
+      if (process.env.GEMINI_API_KEY && normalizedData.length > 0 && !global.cexAIProcessing && !isCircuitBreakerActive) {
         global.cexAIProcessing = true;
         console.log(`🚀 Starting background AI enhancement for ${normalizedData.length} exchanges...`);
         
-        // Background AI processing (async, no await)
+        // Background AI processing (async, no await) - Sequential with delays
         (async () => {
           try {
             let completeDataWithAI = [...normalizedData];
-            const batchSize = 10;
+            const batchSize = 10; // Smaller batches to reduce API load
             const totalBatches = Math.ceil(normalizedData.length / batchSize);
+            const delayBetweenBatches = 15000; // 15 seconds between batches
+            
+            console.log(`📊 Processing ${totalBatches} batches sequentially with ${delayBetweenBatches/1000}s delays...`);
             
             for (let i = 0; i < totalBatches; i++) {
               const batchStart = i * batchSize;
               const batchEnd = batchStart + batchSize;
               const batchExchanges = normalizedData.slice(batchStart, batchEnd);
               
-              console.log(`🤖 Background processing AI batch ${i + 1}/${totalBatches} (${batchExchanges.length} exchanges)...`);
+              console.log(`🤖 Processing AI batch ${i + 1}/${totalBatches} (${batchExchanges.length} exchanges)...`);
               
-              const aiFeesData = await fetchCEXFeesFromAI(batchExchanges);
+              try {
+                const aiFeesData = await fetchCEXFeesFromAI(batchExchanges);
+                
+                if (aiFeesData.length > 0) {
+                  const enhancedBatch = mergeCEXFeeData(batchExchanges, aiFeesData);
+                  completeDataWithAI.splice(batchStart, batchExchanges.length, ...enhancedBatch);
+                  
+                  // Update cache incrementally after each successful batch
+                  global.cexCompleteCache = {
+                    data: completeDataWithAI,
+                    timestamp: Date.now(),
+                  };
+                  
+                  console.log(`✓ Enhanced batch ${i + 1}/${totalBatches} with AI fee data`);
+                } else {
+                  console.log(`⚠️ Batch ${i + 1}/${totalBatches} returned no AI data`);
+                }
+              } catch (batchError) {
+                const errorMessage = batchError instanceof Error ? batchError.message : String(batchError);
+                console.error(`❌ Batch ${i + 1}/${totalBatches} failed:`, errorMessage);
+                
+                // // Activate circuit breaker if API is overloaded
+                // if (errorMessage.includes('overloaded') || errorMessage.includes('503')) {
+                //   global.geminiCircuitBreaker = {
+                //     blocked: true,
+                //     until: Date.now() + (30 * 60 * 1000) // Block for 30 minutes
+                //   };
+                //   console.log('🚫 Circuit breaker activated - stopping AI enhancement for 30 minutes');
+                //   break; // Stop processing more batches
+                // }
+              }
               
-              if (aiFeesData.length > 0) {
-                const enhancedBatch = mergeCEXFeeData(batchExchanges, aiFeesData);
-                completeDataWithAI.splice(batchStart, batchExchanges.length, ...enhancedBatch);
-                console.log(`✓ Background enhanced batch ${i + 1}/${totalBatches} with AI fee data`);
+              // Wait between batches to avoid overloading Gemini API
+              if (i < totalBatches - 1) {
+                console.log(`⏳ Waiting ${delayBetweenBatches/1000}s before next batch...`);
+                await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
               }
             }
             

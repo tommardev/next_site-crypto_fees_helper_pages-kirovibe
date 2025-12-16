@@ -232,10 +232,10 @@ export async function fetchCEXFeesFromAI(exchanges: CEXFees[]): Promise<CEXFeeDa
         break;
       }
       
-      // Wait before retrying (exponential backoff)
+      // Wait before retrying (much longer delays for overloaded API)
       if (attempt < maxRetries) {
-        const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
-        console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+        const waitTime = Math.pow(4, attempt) * 5000; // 20s, 80s, 320s (much longer waits)
+        console.log(`⏳ Waiting ${waitTime/1000}s before retry...`);
         await new Promise(resolve => setTimeout(resolve, waitTime));
       }
     }
