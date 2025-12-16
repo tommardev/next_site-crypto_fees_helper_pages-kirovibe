@@ -27,11 +27,22 @@ import { fetchDEXFeesFromAI, mergeDEXFeeData } from '@/lib/api/gemini';
 // Use global cache for consistency across API routes
 declare global {
   var dexCompleteCache: { data: any; timestamp: number } | null;
+  var dexAIProcessing: boolean;
+  var lastDEXAIError: string | null;
+  var geminiCircuitBreaker: { blocked: boolean; until: number } | null;
 }
 
 // Initialize global cache if not exists
-if (typeof global !== 'undefined' && !global.dexCompleteCache) {
-  global.dexCompleteCache = null;
+if (typeof global !== 'undefined') {
+  if (!global.dexCompleteCache) {
+    global.dexCompleteCache = null;
+  }
+  if (global.dexAIProcessing === undefined) {
+    global.dexAIProcessing = false;
+  }
+  if (global.lastDEXAIError === undefined) {
+    global.lastDEXAIError = null;
+  }
 }
 
 export default async function handler(
@@ -87,30 +98,59 @@ export default async function handler(
         timestamp: Date.now(),
       };
 
-      // Start AI enhancement in background (don't await)
-      if (process.env.GEMINI_API_KEY && normalizedData.length > 0) {
+      // Check circuit breaker before starting AI enhancement
+      const isCircuitBreakerActive = global.geminiCircuitBreaker && 
+        global.geminiCircuitBreaker.blocked && 
+        Date.now() < global.geminiCircuitBreaker.until;
+
+      // Start AI enhancement in background (don't await) - only if not already processing and circuit breaker is off
+      if (process.env.GEMINI_API_KEY && normalizedData.length > 0 && !global.dexAIProcessing && !isCircuitBreakerActive) {
+        global.dexAIProcessing = true;
         console.log(`🚀 Starting background DEX AI enhancement for ${normalizedData.length} DEXes...`);
         
-        // Background AI processing (async, no await)
+        // Background AI processing (async, no await) - Sequential with delays
         (async () => {
           try {
             let completeDataWithAI = [...normalizedData];
-            const batchSize = 10;
+            const batchSize = 10; // Smaller batches to reduce API load
             const totalBatches = Math.ceil(normalizedData.length / batchSize);
+            const delayBetweenBatches = 15000; // 15 seconds between DEX batches (longer than CEX)
+            
+            console.log(`📊 Processing ${totalBatches} DEX batches sequentially with ${delayBetweenBatches/1000}s delays...`);
             
             for (let i = 0; i < totalBatches; i++) {
               const batchStart = i * batchSize;
               const batchEnd = batchStart + batchSize;
               const batchDEXes = normalizedData.slice(batchStart, batchEnd);
               
-              console.log(`🤖 Background processing DEX AI batch ${i + 1}/${totalBatches} (${batchDEXes.length} DEXes)...`);
+              console.log(`🤖 Processing DEX AI batch ${i + 1}/${totalBatches} (${batchDEXes.length} DEXes)...`);
               
-              const aiFeesData = await fetchDEXFeesFromAI(batchDEXes);
+              try {
+                const aiFeesData = await fetchDEXFeesFromAI(batchDEXes);
+                
+                if (aiFeesData.length > 0) {
+                  const enhancedBatch = mergeDEXFeeData(batchDEXes, aiFeesData);
+                  completeDataWithAI.splice(batchStart, batchDEXes.length, ...enhancedBatch);
+                  
+                  // Update cache incrementally after each successful batch
+                  global.dexCompleteCache = {
+                    data: completeDataWithAI,
+                    timestamp: Date.now(),
+                  };
+                  
+                  console.log(`✓ Enhanced DEX batch ${i + 1}/${totalBatches} with AI fee data`);
+                } else {
+                  console.log(`⚠️ DEX batch ${i + 1}/${totalBatches} returned no AI data`);
+                }
+              } catch (batchError) {
+                console.error(`❌ DEX batch ${i + 1}/${totalBatches} failed:`, batchError instanceof Error ? batchError.message : batchError);
+                // Continue with next batch even if one fails
+              }
               
-              if (aiFeesData.length > 0) {
-                const enhancedBatch = mergeDEXFeeData(batchDEXes, aiFeesData);
-                completeDataWithAI.splice(batchStart, batchDEXes.length, ...enhancedBatch);
-                console.log(`✓ Background enhanced DEX batch ${i + 1}/${totalBatches} with AI fee data`);
+              // Wait between batches to avoid overloading Gemini API
+              if (i < totalBatches - 1) {
+                console.log(`⏳ Waiting ${delayBetweenBatches/1000}s before next DEX batch...`);
+                await new Promise(resolve => setTimeout(resolve, delayBetweenBatches));
               }
             }
             
@@ -121,8 +161,13 @@ export default async function handler(
             };
             
             console.log(`🎉 Background DEX AI enhancement complete - cached for ${DEX_CACHE_HOURS} hours`);
+            global.lastDEXAIError = null; // Clear error on success
           } catch (aiError) {
-            console.error('Background DEX AI enhancement failed:', aiError);
+            const errorMessage = aiError instanceof Error ? aiError.message : 'Unknown DEX AI error';
+            console.error('Background DEX AI enhancement failed:', errorMessage);
+            global.lastDEXAIError = errorMessage;
+          } finally {
+            global.dexAIProcessing = false;
           }
         })();
       }

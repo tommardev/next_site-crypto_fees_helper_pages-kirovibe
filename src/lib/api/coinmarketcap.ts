@@ -187,8 +187,8 @@ export interface CoinGeckoExchange {
  * Fetch exchange data from CoinGecko for supplementary information
  * Use for trust scores and additional metadata
  */
-export async function fetchCoinGeckoExchanges(): Promise<CoinGeckoExchange[]> {
-  const url = `${COINGECKO_BASE_URL}/exchanges?per_page=100&page=1`;
+export async function fetchCoinGeckoExchanges(limit: number = 50): Promise<CoinGeckoExchange[]> {
+  const url = `${COINGECKO_BASE_URL}/exchanges?per_page=${limit}&page=1`;
   
   const headers: Record<string, string> = {
     'Accept': 'application/json',
@@ -212,12 +212,12 @@ export async function fetchCoinGeckoExchanges(): Promise<CoinGeckoExchange[]> {
  * Combine CMC and CoinGecko data using FREE TIER endpoints only
  * REAL DATA ONLY - No hardcoded conversions or fake data
  */
-export async function fetchCombinedExchangeData(limit: number = 100) {
+export async function fetchCombinedExchangeData(limit: number = 50) {
   try {
     // Fetch from both sources using free tier endpoints
     const [cmcExchanges, coinGeckoData] = await Promise.allSettled([
       fetchTopExchanges(limit),
-      fetchCoinGeckoExchanges(),
+      fetchCoinGeckoExchanges(limit),
     ]);
 
     // Create CoinGecko lookup map for supplementary data

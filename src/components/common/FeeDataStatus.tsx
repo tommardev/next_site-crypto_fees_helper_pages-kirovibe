@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 interface FeeDataStatusProps {
   exchanges: any[];
   isLoading: boolean;
+  type?: 'cex' | 'dex';
 }
 
 interface AIStatus {
@@ -13,9 +14,21 @@ interface AIStatus {
   totalExchanges: number;
   enhancedExchanges: number;
   lastError?: string;
+  cex?: {
+    totalExchanges: number;
+    enhancedExchanges: number;
+    enhancementRate: string;
+    lastError?: string;
+  };
+  dex?: {
+    totalDEXes: number;
+    enhancedDEXes: number;
+    enhancementRate: string;
+    lastError?: string;
+  };
 }
 
-export function FeeDataStatus({ exchanges, isLoading }: FeeDataStatusProps) {
+export function FeeDataStatus({ exchanges, isLoading, type = 'cex' }: FeeDataStatusProps) {
   const [aiStatus, setAIStatus] = useState<AIStatus | null>(null);
   const [showDetails, setShowDetails] = useState(false);
 
@@ -32,9 +45,23 @@ export function FeeDataStatus({ exchanges, isLoading }: FeeDataStatusProps) {
   // Don't show anything while loading
   if (isLoading || !aiStatus) return null;
 
-  // Calculate fee data availability
-  const exchangesWithFees = exchanges.filter(ex => ex.makerFee !== null || ex.takerFee !== null);
+  // Calculate fee data availability based on type
+  const exchangesWithFees = type === 'dex' 
+    ? exchanges.filter(ex => ex.swapFee !== null)
+    : exchanges.filter(ex => ex.makerFee !== null || ex.takerFee !== null);
   const feeDataRate = exchanges.length > 0 ? (exchangesWithFees.length / exchanges.length * 100) : 0;
+  
+  const entityName = type === 'dex' ? 'DEX' : 'exchange';
+  const entityPlural = type === 'dex' ? 'DEXes' : 'exchanges';
+  const feeType = type === 'dex' ? 'swap fees' : 'trading fees';
+
+  // Get current error based on type
+  const getCurrentError = () => {
+    if (type === 'dex') {
+      return aiStatus?.dex?.lastError || null;
+    }
+    return aiStatus?.cex?.lastError || aiStatus?.lastError || null;
+  };
 
   // Show warning if fee data is missing
   if (feeDataRate < 10) {
@@ -45,10 +72,10 @@ export function FeeDataStatus({ exchanges, isLoading }: FeeDataStatusProps) {
           <Box flex="1">
             <AlertTitle>Fee Data Currently Unavailable</AlertTitle>
             <AlertDescription>
-              We're working to collect real-time trading fees from exchanges. 
+              We're working to collect real-time {feeType} from {entityPlural}. 
               {!aiStatus.geminiConfigured && " AI enhancement is not configured."}
-              {aiStatus.geminiConfigured && !aiStatus.lastError && " Fee collection is in progress."}
-              {aiStatus.lastError && ` Current issue: ${aiStatus.lastError}`}
+              {aiStatus.geminiConfigured && !getCurrentError() && " Fee collection is in progress."}
+              {getCurrentError() && ` Current issue: ${getCurrentError()}`}
             </AlertDescription>
             <VStack align="start" mt={2} spacing={1}>
               <Button size="sm" variant="link" onClick={() => setShowDetails(!showDetails)}>
@@ -56,8 +83,8 @@ export function FeeDataStatus({ exchanges, isLoading }: FeeDataStatusProps) {
               </Button>
               {showDetails && (
                 <Box fontSize="sm" color="gray.600">
-                  <Text>• Exchanges loaded: {aiStatus.totalExchanges}</Text>
-                  <Text>• Exchanges with fees: {aiStatus.enhancedExchanges} ({aiStatus.enhancementRate})</Text>
+                  <Text>• {entityPlural} loaded: {exchanges.length}</Text>
+                  <Text>• {entityPlural} with fees: {exchangesWithFees.length} ({feeDataRate.toFixed(1)}%)</Text>
                   <Text>• Gemini AI: {aiStatus.geminiConfigured ? '✓ Configured' : '✗ Not configured'}</Text>
                   <Text>• CoinMarketCap: {aiStatus.cmcConfigured ? '✓ Configured' : '✗ Not configured'}</Text>
                   <Text mt={2}>
@@ -82,7 +109,7 @@ export function FeeDataStatus({ exchanges, isLoading }: FeeDataStatusProps) {
         <Alert status="success" borderRadius="md">
           <AlertIcon />
           <AlertDescription>
-            Real-time fee data available for {exchangesWithFees.length} exchanges ({feeDataRate.toFixed(0)}%)
+            Real-time fee data available for {exchangesWithFees.length} {entityPlural} ({feeDataRate.toFixed(0)}%)
           </AlertDescription>
         </Alert>
       </Box>

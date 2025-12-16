@@ -3,6 +3,7 @@ import { Layout } from '@/components/layout/Layout';
 import { DEXGrid } from '@/components/exchange/DEXGrid';
 import { DEXFilters } from '@/components/exchange/DEXFilters';
 import { ErrorAlert } from '@/components/common/ErrorAlert';
+import { FeeDataStatus } from '@/components/common/FeeDataStatus';
 import { useDEXFees } from '@/lib/hooks/useExchangeFees';
 import { useDEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
@@ -67,6 +68,11 @@ export default function DEXPage() {
             title="Failed to load DEX data"
             message="Unable to fetch DEX information. Please try again later."
           />
+        )}
+
+        {/* Fee Data Status */}
+        {!isError && dexes && (
+          <FeeDataStatus exchanges={dexes} isLoading={isLoading} type="dex" />
         )}
 
         {/* Filters */}

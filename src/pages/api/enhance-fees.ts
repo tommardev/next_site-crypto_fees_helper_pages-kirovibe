@@ -30,7 +30,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     global.cexAIProcessing = true;
-    const exchanges = global.cexCompleteCache.data.slice(0, 5); // Test with first 5 exchanges
+    const exchanges = global.cexCompleteCache.data.slice(0, 3); // Test with first 3 exchanges (smaller batch)
     
     console.log(`🧪 Manual AI enhancement test for ${exchanges.length} exchanges...`);
     
