@@ -33,11 +33,13 @@ export default async function handler(
   try {
     // Check if complete cache exists and is valid
     if (global.cexCompleteCache && Date.now() - global.cexCompleteCache.timestamp < CEX_CACHE_DURATION) {
-      console.log(`✓ Serving CEX batch ${batchNum} from ${parseInt(process.env.CEX_CACHE_HOURS || '72', 10)}-hour cache`);
+      console.log(`✓ Serving CEX batch ${batchNum} from cache (${global.cexCompleteCache.data.length} total exchanges)`);
       
       const startIndex = (batchNum - 1) * size;
       const endIndex = startIndex + size;
       const batchData = global.cexCompleteCache.data.slice(startIndex, endIndex);
+      
+      console.log(`📊 Batch ${batchNum}: indices ${startIndex}-${endIndex}, returning ${batchData.length} exchanges`);
 
       if (batchData.length === 0) {
         return res.status(200).json({
@@ -49,11 +51,13 @@ export default async function handler(
         });
       }
 
-      // Set cache headers (configurable duration)
+      // Set cache headers - prevent CDN caching for batch API
       res.setHeader(
         'Cache-Control',
-        `public, s-maxage=${CEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${CEX_CACHE_DURATION_SECONDS * 2}`
+        'private, no-cache, no-store, must-revalidate'
       );
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
 
       const totalBatches = Math.ceil(global.cexCompleteCache.data.length / size);
       const hasMore = endIndex < global.cexCompleteCache.data.length;

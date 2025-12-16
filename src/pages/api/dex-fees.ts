@@ -24,12 +24,14 @@ import { fetchDEXFeesFromAI, mergeDEXFeeData } from '@/lib/api/gemini';
  * 4. Cache for 24 hours to respect API limits
  */
 
-// In-memory cache for complete AI-enhanced DEX data (24-hour cache)
-let completeDEXCache: { data: any; timestamp: number } | null = null;
+// Use global cache for consistency across API routes
+declare global {
+  var dexCompleteCache: { data: any; timestamp: number } | null;
+}
 
-// Make cache available globally for batch API
-if (typeof global !== 'undefined') {
-  global.dexCompleteCache = completeDEXCache;
+// Initialize global cache if not exists
+if (typeof global !== 'undefined' && !global.dexCompleteCache) {
+  global.dexCompleteCache = null;
 }
 
 export default async function handler(
@@ -46,19 +48,19 @@ export default async function handler(
 
   try {
     // Check cache for complete AI-enhanced DEX data (configurable cache)
-    if (completeDEXCache && Date.now() - completeDEXCache.timestamp < DEX_CACHE_DURATION) {
-      console.log(`✓ Serving DEX data from ${DEX_CACHE_HOURS}-hour cache`);
+    if (global.dexCompleteCache && Date.now() - global.dexCompleteCache.timestamp < DEX_CACHE_DURATION) {
+      console.log(`✓ Serving DEX data from cache`);
       const startIndex = (batchNum - 1) * size;
       const endIndex = startIndex + size;
-      const batchData = completeDEXCache.data.slice(startIndex, endIndex);
+      const batchData = global.dexCompleteCache.data.slice(startIndex, endIndex);
       
       return res.status(200).json({
         data: batchData,
         cached: true,
-        cachedAt: new Date(completeDEXCache.timestamp).toISOString(),
+        cachedAt: new Date(global.dexCompleteCache.timestamp).toISOString(),
         batch: batchNum,
-        totalBatches: Math.ceil(completeDEXCache.data.length / size),
-        hasMore: endIndex < completeDEXCache.data.length,
+        totalBatches: Math.ceil(global.dexCompleteCache.data.length / size),
+        hasMore: endIndex < global.dexCompleteCache.data.length,
       });
     }
 
@@ -80,15 +82,10 @@ export default async function handler(
       const firstBatchData = normalizedData.slice(startIndex, endIndex);
 
       // Cache placeholder data temporarily
-      completeDEXCache = {
+      global.dexCompleteCache = {
         data: normalizedData,
         timestamp: Date.now(),
       };
-      
-      // Update global cache for batch API access
-      if (typeof global !== 'undefined') {
-        global.dexCompleteCache = completeDEXCache;
-      }
 
       // Start AI enhancement in background (don't await)
       if (process.env.GEMINI_API_KEY && normalizedData.length > 0) {
@@ -118,14 +115,10 @@ export default async function handler(
             }
             
             // Update cache with AI-enhanced data
-            completeDEXCache = {
+            global.dexCompleteCache = {
               data: completeDataWithAI,
               timestamp: Date.now(),
             };
-            
-            if (typeof global !== 'undefined') {
-              global.dexCompleteCache = completeDEXCache;
-            }
             
             console.log(`🎉 Background DEX AI enhancement complete - cached for ${DEX_CACHE_HOURS} hours`);
           } catch (aiError) {
@@ -154,11 +147,13 @@ export default async function handler(
     const endIndex = startIndex + size;
     const batchData = normalizedData.slice(startIndex, endIndex);
 
-    // Set cache headers for CDN/browser caching (configurable duration)
+    // Set cache headers - prevent CDN caching for dynamic content
     res.setHeader(
       'Cache-Control',
-      `public, s-maxage=${DEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${DEX_CACHE_DURATION_SECONDS * 2}`
+      'private, no-cache, no-store, must-revalidate'
     );
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
 
     const totalBatches = Math.ceil(normalizedData.length / size);
     const hasMore = endIndex < normalizedData.length;
