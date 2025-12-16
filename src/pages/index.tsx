@@ -3,6 +3,7 @@ import { Layout } from '@/components/layout/Layout';
 import { ExchangeGrid } from '@/components/exchange/ExchangeGrid';
 import { ExchangeFilters } from '@/components/exchange/ExchangeFilters';
 import { ErrorAlert } from '@/components/common/ErrorAlert';
+import { FeeDataStatus } from '@/components/common/FeeDataStatus';
 import { useExchangeFees } from '@/lib/hooks/useExchangeFees';
 import { useCEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
@@ -67,6 +68,11 @@ export default function HomePage() {
             title="Failed to load exchanges"
             message="Unable to fetch exchange data. Please try again later."
           />
+        )}
+
+        {/* Fee Data Status */}
+        {!isError && exchanges && (
+          <FeeDataStatus exchanges={exchanges} isLoading={isLoading} />
         )}
 
         {/* Filters */}

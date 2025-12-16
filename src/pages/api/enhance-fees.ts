@@ -12,8 +12,8 @@ declare global {
 }
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
-  if (req.method !== 'POST') {
-    return res.status(405).json({ error: 'Method not allowed' });
+  if (req.method !== 'POST' && req.method !== 'GET') {
+    return res.status(405).json({ error: 'Method not allowed. Use POST or GET.' });
   }
 
   if (!process.env.GEMINI_API_KEY) {
