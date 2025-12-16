@@ -171,6 +171,17 @@ async function callGeminiAPI(prompt: string): Promise<string> {
 
     return response.text;
   } catch (error: any) {
+    // Handle specific Gemini API errors
+    if (error.message?.includes('503') || error.message?.includes('overloaded')) {
+      throw new Error('Gemini API is temporarily overloaded. Please try again in a few minutes.');
+    }
+    if (error.message?.includes('429') || error.message?.includes('quota')) {
+      throw new Error('Gemini API rate limit exceeded. Please try again later.');
+    }
+    if (error.message?.includes('401') || error.message?.includes('unauthorized')) {
+      throw new Error('Invalid Gemini API key. Please check your configuration.');
+    }
+    
     throw new Error(`Gemini API error: ${error.message}`);
   }
 }
@@ -194,25 +205,45 @@ function parseGeminiJSON<T>(responseText: string): T[] {
 }
 
 /**
- * Fetch CEX fee data using Gemini AI
+ * Fetch CEX fee data using Gemini AI with retry logic
  */
 export async function fetchCEXFeesFromAI(exchanges: CEXFees[]): Promise<CEXFeeData[]> {
   if (exchanges.length === 0) {
     return [];
   }
 
-  try {
-    const prompt = generateCEXPrompt(exchanges);
-    const responseText = await callGeminiAPI(prompt);
-    const feeData = parseGeminiJSON<CEXFeeData>(responseText);
-    
-    console.log(`Successfully fetched AI fee data for ${feeData.length} CEX exchanges`);
-    return feeData;
-  } catch (error) {
-    console.error('Error fetching CEX fees from AI:', error);
-    // Return empty array on error - don't break the main API
-    return [];
+  const maxRetries = 3;
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const prompt = generateCEXPrompt(exchanges);
+      const responseText = await callGeminiAPI(prompt);
+      const feeData = parseGeminiJSON<CEXFeeData>(responseText);
+      
+      console.log(`✓ Successfully fetched AI fee data for ${feeData.length} CEX exchanges (attempt ${attempt})`);
+      return feeData;
+    } catch (error) {
+      lastError = error as Error;
+      console.error(`❌ AI attempt ${attempt}/${maxRetries} failed:`, error instanceof Error ? error.message : error);
+      
+      // Don't retry on authentication errors
+      if (error instanceof Error && error.message.includes('Invalid Gemini API key')) {
+        break;
+      }
+      
+      // Wait before retrying (exponential backoff)
+      if (attempt < maxRetries) {
+        const waitTime = Math.pow(2, attempt) * 1000; // 2s, 4s, 8s
+        console.log(`⏳ Waiting ${waitTime}ms before retry...`);
+        await new Promise(resolve => setTimeout(resolve, waitTime));
+      }
+    }
   }
+
+  console.error(`❌ All AI attempts failed. Last error:`, lastError?.message);
+  // Return empty array on error - don't break the main API
+  return [];
 }
 
 /**

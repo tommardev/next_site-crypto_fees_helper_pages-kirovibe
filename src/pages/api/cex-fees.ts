@@ -27,6 +27,7 @@ import { fetchCEXFeesFromAI, mergeCEXFeeData } from '@/lib/api/gemini';
 declare global {
   var cexCompleteCache: { data: any; timestamp: number } | null;
   var cexAIProcessing: boolean;
+  var lastAIError: string | null;
 }
 
 // Initialize global cache if not exists
@@ -36,6 +37,9 @@ if (typeof global !== 'undefined') {
   }
   if (global.cexAIProcessing === undefined) {
     global.cexAIProcessing = false;
+  }
+  if (global.lastAIError === undefined) {
+    global.lastAIError = null;
   }
 }
 
@@ -135,8 +139,11 @@ export default async function handler(
             };
             
             console.log(`🎉 Background AI enhancement complete - cached for ${CEX_CACHE_HOURS} hours`);
+            global.lastAIError = null; // Clear error on success
           } catch (aiError) {
-            console.error('Background AI enhancement failed:', aiError);
+            const errorMessage = aiError instanceof Error ? aiError.message : 'Unknown AI error';
+            console.error('Background AI enhancement failed:', errorMessage);
+            global.lastAIError = errorMessage;
           } finally {
             global.cexAIProcessing = false;
           }

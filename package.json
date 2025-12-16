@@ -16,6 +16,7 @@
     "@emotion/react": "^11.9.0",
     "@emotion/styled": "^11.9.0",
     "@google/genai": "^1.33.0",
+    "dotenv": "^17.2.3",
     "framer-motion": "^6.3.0",
     "next": "latest",
     "react": "^18.2.0",

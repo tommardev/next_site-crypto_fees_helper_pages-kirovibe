@@ -15,6 +15,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   // Check if any exchanges have real fee data
   const cexCache = (global as any).cexCompleteCache;
+  const lastAIError = (global as any).lastAIError;
   let enhancedExchanges = 0;
   let totalExchanges = 0;
 
@@ -33,5 +34,6 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     enhancedExchanges,
     enhancementRate: totalExchanges > 0 ? (enhancedExchanges / totalExchanges * 100).toFixed(1) + '%' : '0%',
     lastCacheUpdate: cexCache?.timestamp ? new Date(cexCache.timestamp).toISOString() : null,
+    lastError: lastAIError,
   });
 }
