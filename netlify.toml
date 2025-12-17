@@ -1,6 +1,6 @@
 [build]
-  command = "npm run build"
-  publish = "out"
+  command = "npm ci && npm run build"
+  publish = ".next"
 
 # Optimize API route caching for better performance
 [[headers]]
@@ -38,28 +38,10 @@
     # Let the API route set its own cache headers
     Cache-Control = "public, s-maxage=259200, stale-while-revalidate=518400"
 
-# Redirect rules for SPA behavior (Next.js pages)
-[[redirects]]
-  from = "/*"
-  to = "/index.html"
-  status = 200
-  force = false
+# Next.js handles routing automatically in serverless mode
 
-# Environment-specific settings
-[context.production.environment]
-  NODE_ENV = "production"
-  CEX_CACHE_HOURS = "72"
-  DEX_CACHE_HOURS = "72"
-
-[context.deploy-preview.environment]
-  NODE_ENV = "development"
-  CEX_CACHE_HOURS = "24"
-  DEX_CACHE_HOURS = "24"
+# Environment variables set in Netlify dashboard
 
 # Function settings for API routes
 [functions]
-  # Set custom functions directory (optional)
-  directory = "netlify/functions"
-  
-  # Use esbuild for better performance
   node_bundler = "esbuild"

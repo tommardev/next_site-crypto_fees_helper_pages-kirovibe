@@ -14,12 +14,8 @@ const nextConfig = {
     ],
     unoptimized: false,
   },
-  // For static export, uncomment the following:
-  // output: 'export',
-  // images: {
-  //   unoptimized: true,
-  // },
-  // trailingSlash: true,
+  // Serverless deployment configuration
+  serverExternalPackages: ['@google/genai'],
 };
 
 module.exports = nextConfig;
