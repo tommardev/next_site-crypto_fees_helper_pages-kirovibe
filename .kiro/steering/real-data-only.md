@@ -1,3 +1,7 @@
+---
+inclusion: always
+---
+
 # Real Data Only Policy - MANDATORY
 
 ## Core Principle: Never Use Fake or Hardcoded Data - Use AI for Real Fee Collection
