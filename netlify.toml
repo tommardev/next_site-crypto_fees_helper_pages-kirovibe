@@ -38,24 +38,34 @@
     # Let the API route set its own cache headers
     Cache-Control = "public, s-maxage=259200, stale-while-revalidate=518400"
 
-# Redirect rules for SPA behavior
+# Redirect rules for SPA behavior (Next.js pages)
 [[redirects]]
   from = "/*"
   to = "/index.html"
   status = 200
-  conditions = {Role = ["admin"]}
+  force = false
 
 # Environment-specific settings
 [context.production.environment]
   NODE_ENV = "production"
+  CEX_CACHE_HOURS = "72"
+  DEX_CACHE_HOURS = "72"
 
 [context.deploy-preview.environment]
   NODE_ENV = "development"
+  CEX_CACHE_HOURS = "24"
+  DEX_CACHE_HOURS = "24"
 
 # Function settings for API routes
 [functions]
-  # Increase timeout for AI processing
-  timeout = 300
-  
   # Memory allocation for heavy processing
   memory = 1024
+
+# Function timeout configuration
+[functions.timeout]
+  # Increase timeout for AI processing routes (5 minutes)
+  "/api/enhance-*" = "300s"
+  "/api/cex-fees*" = "300s"
+  "/api/dex-fees*" = "300s"
+  # Default timeout for other functions (30 seconds)
+  "/*" = "30s"
