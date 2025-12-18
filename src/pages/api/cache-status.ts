@@ -1,5 +1,6 @@
 import { NextApiRequest, NextApiResponse } from 'next';
 import { CEX_CACHE_DURATION, DEX_CACHE_DURATION } from '@/config/constants';
+import { initializeGlobalCache, getCacheState } from '@/lib/utils/cache-optimizer';
 
 /**
  * Cache Status API
@@ -11,6 +12,11 @@ import { CEX_CACHE_DURATION, DEX_CACHE_DURATION } from '@/config/constants';
 declare global {
   var cexCompleteCache: { data: any; timestamp: number } | null;
   var dexCompleteCache: { data: any; timestamp: number } | null;
+  var cexAIProcessing: boolean;
+  var dexAIProcessing: boolean;
+  var lastAIError: string | null;
+  var lastDEXAIError: string | null;
+  var geminiCircuitBreaker: { blocked: boolean; until: number } | null;
 }
 
 export default async function handler(
@@ -22,44 +28,76 @@ export default async function handler(
   }
 
   try {
+    // Initialize global cache safely
+    initializeGlobalCache();
+    
     const now = Date.now();
     
-    const cexCacheStatus = global.cexCompleteCache ? {
+    // Get cache states safely
+    const cexCacheState = getCacheState('cex');
+    const dexCacheState = getCacheState('dex');
+    
+    const cexCacheStatus = cexCacheState ? {
       exists: true,
-      dataLength: global.cexCompleteCache.data?.length || 0,
-      cachedAt: new Date(global.cexCompleteCache.timestamp).toISOString(),
-      ageMs: now - global.cexCompleteCache.timestamp,
-      isValid: (now - global.cexCompleteCache.timestamp) < CEX_CACHE_DURATION,
-      expiresAt: new Date(global.cexCompleteCache.timestamp + CEX_CACHE_DURATION).toISOString(),
+      dataLength: cexCacheState.data?.length || 0,
+      cachedAt: new Date(cexCacheState.timestamp).toISOString(),
+      ageMs: now - cexCacheState.timestamp,
+      ageHours: Math.floor((now - cexCacheState.timestamp) / (1000 * 60 * 60)),
+      isValid: (now - cexCacheState.timestamp) < CEX_CACHE_DURATION,
+      expiresAt: new Date(cexCacheState.timestamp + CEX_CACHE_DURATION).toISOString(),
+      aiProcessing: cexCacheState.isProcessing,
+      lastError: cexCacheState.lastError,
     } : {
       exists: false,
       dataLength: 0,
       cachedAt: null,
       ageMs: 0,
+      ageHours: 0,
       isValid: false,
       expiresAt: null,
+      aiProcessing: false,
+      lastError: null,
     };
 
-    const dexCacheStatus = global.dexCompleteCache ? {
+    const dexCacheStatus = dexCacheState ? {
       exists: true,
-      dataLength: global.dexCompleteCache.data?.length || 0,
-      cachedAt: new Date(global.dexCompleteCache.timestamp).toISOString(),
-      ageMs: now - global.dexCompleteCache.timestamp,
-      isValid: (now - global.dexCompleteCache.timestamp) < DEX_CACHE_DURATION,
-      expiresAt: new Date(global.dexCompleteCache.timestamp + DEX_CACHE_DURATION).toISOString(),
+      dataLength: dexCacheState.data?.length || 0,
+      cachedAt: new Date(dexCacheState.timestamp).toISOString(),
+      ageMs: now - dexCacheState.timestamp,
+      ageHours: Math.floor((now - dexCacheState.timestamp) / (1000 * 60 * 60)),
+      isValid: (now - dexCacheState.timestamp) < DEX_CACHE_DURATION,
+      expiresAt: new Date(dexCacheState.timestamp + DEX_CACHE_DURATION).toISOString(),
+      aiProcessing: dexCacheState.isProcessing,
+      lastError: dexCacheState.lastError,
     } : {
       exists: false,
       dataLength: 0,
       cachedAt: null,
       ageMs: 0,
+      ageHours: 0,
       isValid: false,
       expiresAt: null,
+      aiProcessing: false,
+      lastError: null,
     };
+
+    // Circuit Breaker Status
+    const circuitBreakerActive = global.geminiCircuitBreaker && 
+      global.geminiCircuitBreaker.blocked && 
+      now < global.geminiCircuitBreaker.until;
 
     return res.status(200).json({
       timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV,
       cex: cexCacheStatus,
       dex: dexCacheStatus,
+      ai: {
+        circuitBreakerActive,
+        circuitBreakerUntil: global.geminiCircuitBreaker?.until 
+          ? new Date(global.geminiCircuitBreaker.until).toISOString()
+          : null,
+        geminiConfigured: !!process.env.GEMINI_API_KEY,
+      },
       cacheDurations: {
         cexMs: CEX_CACHE_DURATION,
         dexMs: DEX_CACHE_DURATION,
