@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Kiro Prompt Modifier",
+  "description": "Automatically adds 'Use real documentations for required changes.' at the beginning and 'use context7' at the end of prompts before sending to Kiro",
+  "version": "1",
+  "when": {
+    "type": "userPrompt"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Use real documentations for required changes.\n{userPrompt}\nuse context7"
+  }
+}

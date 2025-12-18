@@ -1,15 +1,14 @@
 import { NextApiRequest, NextApiResponse } from 'next';
-import { fetchCombinedExchangeData } from '@/lib/api/coinmarketcap';
-import { normalizeCombinedExchangeData } from '@/lib/utils/normalize';
 import { handleAPIError } from '@/lib/api/error-handler';
-import { fetchCEXFeesFromAI, mergeCEXFeeData } from '@/lib/api/gemini';
 import { CEX_CACHE_DURATION, CEX_CACHE_DURATION_SECONDS } from '@/config/constants';
+import { initializeGlobalCache, getCacheState, isCacheValid } from '@/lib/utils/cache-optimizer';
 
 /**
  * CEX Fees Batch API Route
  * 
- * Loads additional batches of exchanges with AI fee data
- * Used for progressive loading after initial batch
+ * DEPRECATED: This endpoint is no longer needed with the new unified batch system.
+ * All batches are now handled through the main /api/cex-fees endpoint.
+ * This endpoint remains for backward compatibility.
  */
 
 // Shared cache with main API
@@ -25,18 +24,24 @@ export default async function handler(
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  const { batch = '2', batchSize = '10' } = req.query;
+  // Initialize global cache safely
+  initializeGlobalCache();
+
+  const { batch = '2', batchSize = '20' } = req.query;
   const batchNum = parseInt(batch as string, 10);
   const size = parseInt(batchSize as string, 10);
 
   try {
+    // Get cache state safely
+    const cacheState = getCacheState('cex');
+    
     // Check if complete cache exists and is valid
-    if (global.cexCompleteCache && Date.now() - global.cexCompleteCache.timestamp < CEX_CACHE_DURATION) {
-      console.log(`✓ Serving CEX batch ${batchNum} from cache (${global.cexCompleteCache.data.length} total exchanges)`);
+    if (cacheState && isCacheValid(cacheState.timestamp, CEX_CACHE_DURATION)) {
+      console.log(`✓ Serving CEX batch ${batchNum} from cache (${cacheState.data.length} total exchanges)`);
       
       const startIndex = (batchNum - 1) * size;
       const endIndex = startIndex + size;
-      const batchData = global.cexCompleteCache.data.slice(startIndex, endIndex);
+      const batchData = cacheState.data.slice(startIndex, endIndex);
       
       console.log(`📊 Batch ${batchNum}: indices ${startIndex}-${endIndex}, returning ${batchData.length} exchanges`);
 
@@ -44,7 +49,7 @@ export default async function handler(
         return res.status(200).json({
           data: [],
           batch: batchNum,
-          totalBatches: Math.ceil(global.cexCompleteCache.data.length / size),
+          totalBatches: Math.ceil(cacheState.data.length / size),
           hasMore: false,
           message: 'No more exchanges to load',
         });
@@ -57,17 +62,18 @@ export default async function handler(
       );
       res.setHeader('Netlify-CDN-Cache-Control', `public, max-age=${CEX_CACHE_DURATION_SECONDS}, stale-while-revalidate=${CEX_CACHE_DURATION_SECONDS * 2}`);
 
-      const totalBatches = Math.ceil(global.cexCompleteCache.data.length / size);
-      const hasMore = endIndex < global.cexCompleteCache.data.length;
+      const totalBatches = Math.ceil(cacheState.data.length / size);
+      const hasMore = endIndex < cacheState.data.length;
 
       return res.status(200).json({
         data: batchData,
         batch: batchNum,
         totalBatches,
         hasMore,
-        totalExchanges: global.cexCompleteCache.data.length,
+        totalExchanges: cacheState.data.length,
         cached: true,
-        cachedAt: new Date(global.cexCompleteCache.timestamp).toISOString(),
+        cachedAt: new Date(cacheState.timestamp).toISOString(),
+        backgroundProcessing: cacheState.isProcessing,
       });
     }
 

@@ -1,4 +1,5 @@
-import { Box, Heading, Text, VStack, Badge, HStack } from '@chakra-ui/react';
+import { Box, Heading, Text, VStack, Badge, HStack, Button, useToast, Flex } from '@chakra-ui/react';
+import { RepeatIcon } from '@chakra-ui/icons';
 import { Layout } from '@/components/layout/Layout';
 import { ExchangeGrid } from '@/components/exchange/ExchangeGrid';
 import { ExchangeFilters } from '@/components/exchange/ExchangeFilters';
@@ -8,8 +9,12 @@ import { useExchangeFees } from '@/lib/hooks/useExchangeFees';
 import { useCEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
 import { CacheMonitor } from '@/components/common/CacheMonitor';
+import { useState } from 'react';
 
 export default function HomePage() {
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const toast = useToast();
+  
   const { 
     exchanges, 
     isLoading, 
@@ -19,7 +24,8 @@ export default function HomePage() {
     isCached,
     totalBatches,
     loadedBatches,
-    progress
+    progress,
+    refresh
   } = useExchangeFees();
   
   const {
@@ -34,14 +40,52 @@ export default function HomePage() {
     reset,
   } = useCEXFilters(exchanges);
 
+  const handleRefresh = async () => {
+    setIsRefreshing(true);
+    try {
+      // Use the hook's refresh function for better UX
+      await refresh();
+      
+      toast({
+        title: 'Data Refreshed',
+        description: 'Exchange data has been updated with the latest information.',
+        status: 'success',
+        duration: 3000,
+        isClosable: true,
+      });
+    } catch (error) {
+      toast({
+        title: 'Refresh Failed',
+        description: 'Unable to refresh data. Please try again.',
+        status: 'error',
+        duration: 3000,
+        isClosable: true,
+      });
+    } finally {
+      setIsRefreshing(false);
+    }
+  };
+
   return (
     <Layout>
       <VStack spacing={6} align="stretch">
         {/* Header */}
         <Box>
-          <Heading size="xl" mb={2}>
-            Centralized Exchange (CEX) Fees
-          </Heading>
+          <Flex justify="space-between" align="start" mb={2}>
+            <Heading size="xl">
+              Centralized Exchange (CEX) Fees
+            </Heading>
+            <Button
+              leftIcon={<RepeatIcon />}
+              size="sm"
+              variant="outline"
+              onClick={handleRefresh}
+              isLoading={isRefreshing}
+              loadingText="Refreshing..."
+            >
+              Refresh Data
+            </Button>
+          </Flex>
           <HStack spacing={2} flexWrap="wrap">
             <Text color="gray.600">
               Compare trading fees across top cryptocurrency exchanges

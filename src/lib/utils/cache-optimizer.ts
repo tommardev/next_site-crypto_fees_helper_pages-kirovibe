@@ -12,6 +12,94 @@ export interface CacheHeaders {
   'Vary'?: string;
 }
 
+// Global cache state management with proper initialization
+export interface CacheState {
+  data: any[];
+  timestamp: number;
+  isProcessing: boolean;
+  lastError: string | null;
+}
+
+// Initialize global cache state safely
+export function initializeGlobalCache() {
+  if (typeof global !== 'undefined') {
+    // CEX Cache
+    if (!global.cexCompleteCache) {
+      global.cexCompleteCache = null;
+    }
+    if (global.cexAIProcessing === undefined) {
+      global.cexAIProcessing = false;
+    }
+    if (global.lastAIError === undefined) {
+      global.lastAIError = null;
+    }
+    
+    // DEX Cache
+    if (!global.dexCompleteCache) {
+      global.dexCompleteCache = null;
+    }
+    if (global.dexAIProcessing === undefined) {
+      global.dexAIProcessing = false;
+    }
+    if (global.lastDEXAIError === undefined) {
+      global.lastDEXAIError = null;
+    }
+    
+    // Circuit Breaker
+    if (global.geminiCircuitBreaker === undefined) {
+      global.geminiCircuitBreaker = null;
+    }
+  }
+}
+
+// Safe cache getter with fallback
+export function getCacheState(type: 'cex' | 'dex'): CacheState | null {
+  initializeGlobalCache();
+  
+  if (type === 'cex') {
+    return global.cexCompleteCache ? {
+      data: global.cexCompleteCache.data,
+      timestamp: global.cexCompleteCache.timestamp,
+      isProcessing: global.cexAIProcessing || false,
+      lastError: global.lastAIError || null,
+    } : null;
+  } else {
+    return global.dexCompleteCache ? {
+      data: global.dexCompleteCache.data,
+      timestamp: global.dexCompleteCache.timestamp,
+      isProcessing: global.dexAIProcessing || false,
+      lastError: global.lastDEXAIError || null,
+    } : null;
+  }
+}
+
+// Safe cache setter
+export function setCacheState(type: 'cex' | 'dex', data: any[], timestamp?: number): void {
+  initializeGlobalCache();
+  
+  const cacheData = {
+    data,
+    timestamp: timestamp || Date.now(),
+  };
+  
+  if (type === 'cex') {
+    global.cexCompleteCache = cacheData;
+  } else {
+    global.dexCompleteCache = cacheData;
+  }
+}
+
+// Safe processing state management
+export function setProcessingState(type: 'cex' | 'dex', isProcessing: boolean): void {
+  initializeGlobalCache();
+  
+  if (type === 'cex') {
+    global.cexAIProcessing = isProcessing;
+  } else {
+    global.dexAIProcessing = isProcessing;
+  }
+}
+
 /**
  * Generate optimized cache headers for Netlify CDN
  */
