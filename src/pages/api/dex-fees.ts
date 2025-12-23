@@ -52,9 +52,9 @@ export default async function handler(
   // Initialize global cache safely
   initializeGlobalCache();
 
-  const { batch = '1', batchSize = '20' } = req.query;
-  const batchNum = parseInt(batch as string, 10);
-  const size = parseInt(batchSize as string, 10);
+  const { batch = '1', batchSize = '20', _refresh } = req.query;
+  const batchNum = batch === 'all' ? 1 : parseInt(batch as string, 10);
+  const size = batch === 'all' ? 1000 : parseInt(batchSize as string, 10); // Load all data when batch=all
 
   try {
     // Get cache state safely
@@ -97,12 +97,19 @@ export default async function handler(
     // Cache the normalized data immediately
     setCacheState('dex', normalizedData);
 
-    // Calculate batch response
-    const startIndex = (batchNum - 1) * size;
-    const endIndex = startIndex + size;
-    const batchData = normalizedData.slice(startIndex, endIndex);
-    const totalBatches = Math.ceil(normalizedData.length / size);
-    const hasMore = endIndex < normalizedData.length;
+    // Calculate batch response - handle "all" case
+    let batchData, totalBatches, hasMore;
+    if (batch === 'all') {
+      batchData = normalizedData; // Return all data
+      totalBatches = 1;
+      hasMore = false;
+    } else {
+      const startIndex = (batchNum - 1) * size;
+      const endIndex = startIndex + size;
+      batchData = normalizedData.slice(startIndex, endIndex);
+      totalBatches = Math.ceil(normalizedData.length / size);
+      hasMore = endIndex < normalizedData.length;
+    }
 
     // Check circuit breaker before starting AI enhancement
     const isCircuitBreakerActive = global.geminiCircuitBreaker && 
@@ -192,7 +199,7 @@ export default async function handler(
       data: batchData,
       cached: false,
       cachedAt: new Date().toISOString(),
-      batch: batchNum,
+      batch: batch === 'all' ? 'all' : batchNum,
       totalBatches,
       hasMore,
       totalDEXes: normalizedData.length,

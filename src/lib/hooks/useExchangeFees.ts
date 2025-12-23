@@ -11,404 +11,223 @@ const fetcher = async (url: string) => {
   return response.json();
 };
 
-// Stable SWR configuration with cache-busting for AI updates
+// Optimized SWR configuration for immediate data loading
 const swrConfig = {
   revalidateOnFocus: false,
   revalidateOnReconnect: false,
   refreshInterval: 0,
-  dedupingInterval: 5000, // Reduced to 5 seconds to allow faster updates
+  dedupingInterval: 2000,
   revalidateIfStale: false,
   errorRetryCount: 2,
   errorRetryInterval: 3000,
 };
 
 /**
- * Hook to fetch CEX exchange fees with stable progressive loading
- * Loads first batch immediately, then loads additional batches in background
- * Polls for AI updates when background processing is active
+ * Enhanced CEX hook with automatic AI completion refresh
+ * Loads complete dataset from cache or API, then automatically refreshes when AI processing completes
  */
 export function useExchangeFees() {
   const [allExchanges, setAllExchanges] = useState<CEXFees[]>([]);
-  const [backgroundLoading, setBackgroundLoading] = useState(false);
-  const [totalBatches, setTotalBatches] = useState(0);
-  const [loadedBatches, setLoadedBatches] = useState(0);
-  const loadingRef = useRef(false);
-  const initializedRef = useRef(false);
+  const [backgroundProcessing, setBackgroundProcessing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastAIStatusRef = useRef<boolean>(false);
 
-  // Load first batch with stable configuration
-  const { data: firstBatch, error, isLoading, mutate } = useSWR(
-    '/api/cex-fees?batch=1&batchSize=20', 
+  // Load complete dataset immediately (from cache or fresh API call)
+  // Use refreshKey to force cache-busting when AI completes
+  const { data, error, isLoading, mutate } = useSWR(
+    `/api/cex-fees?batch=all&_refresh=${refreshKey}`, // Cache-busting parameter
     fetcher, 
     swrConfig
   );
 
-  // Stable background loading function
-  const loadRemainingBatches = useCallback(async (totalBatches: number, initialData: CEXFees[]) => {
-    if (totalBatches <= 1 || loadingRef.current) return;
-    
-    loadingRef.current = true;
-    setBackgroundLoading(true);
-    
-    try {
-      // Pre-allocate array with correct size
-      const completeExchanges = new Array(totalBatches * 20);
-      
-      // Set initial batch data
-      initialData.forEach((exchange, index) => {
-        completeExchanges[index] = exchange;
-      });
-      
-      // Load remaining batches sequentially
-      for (let batch = 2; batch <= totalBatches; batch++) {
-        try {
-          const response = await fetch(`/api/cex-fees?batch=${batch}&batchSize=20`);
-          
-          if (!response.ok) {
-            console.warn(`Batch ${batch} failed with status ${response.status}`);
-            continue;
-          }
-          
-          const data = await response.json();
-
-          if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-            const startIndex = (batch - 1) * 20;
-            
-            // Insert batch data at correct position
-            data.data.forEach((exchange: CEXFees, index: number) => {
-              completeExchanges[startIndex + index] = exchange;
-            });
-            
-            // Update state with current progress
-            setAllExchanges([...completeExchanges.filter(Boolean)]);
-            setLoadedBatches(batch);
-          }
-          
-          // Small delay between batches to prevent overwhelming
-          if (batch < totalBatches) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-        } catch (batchError) {
-          console.error(`Error loading CEX batch ${batch}:`, batchError);
-        }
-      }
-    } catch (error) {
-      console.error('Background loading failed:', error);
-    } finally {
-      setBackgroundLoading(false);
-      loadingRef.current = false;
-    }
-  }, []);
-
-  // Initialize with first batch and start background loading
+  // Update state when data changes
   useEffect(() => {
-    if (firstBatch?.data) {
-      const exchanges = Array.isArray(firstBatch.data) ? firstBatch.data : [];
-      const batches = firstBatch.totalBatches || 1;
-      
-      // Always update the first batch data (this handles both initial load and refresh)
-      setAllExchanges(exchanges);
-      setTotalBatches(batches);
-      setLoadedBatches(1);
-      
-      // Only start background loading if not already initialized or if this is a refresh
-      if ((batches > 1 && exchanges.length > 0) && (!initializedRef.current || !firstBatch.cached)) {
-        initializedRef.current = true;
+    if (data?.data && Array.isArray(data.data)) {
+      setAllExchanges(data.data);
+      setBackgroundProcessing(data.backgroundProcessing || false);
+    }
+  }, [data]);
+
+  // Enhanced polling for AI updates with automatic refresh
+  useEffect(() => {
+    // Clear any existing interval
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
+    // Only start polling if background processing is active
+    if (!backgroundProcessing) {
+      lastAIStatusRef.current = false;
+      return;
+    }
+
+    console.log('🔄 Starting AI completion polling for CEX data...');
+    lastAIStatusRef.current = true;
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const statusResponse = await fetch('/api/cache-status');
+        const status = await statusResponse.json();
         
-        // Use setTimeout to ensure state updates are processed
-        setTimeout(() => {
-          loadRemainingBatches(batches, exchanges);
-        }, 200);
-      } else if (batches === 1) {
-        // Single batch case
-        initializedRef.current = true;
-      }
-    }
-  }, [firstBatch, loadRemainingBatches]);
-
-  // Reload all batches with fresh data (complete reset)
-  const reloadAllBatches = useCallback(async () => {
-    try {
-      console.log('🔄 Reloading all batches with fresh AI-enhanced data...');
-      
-      // Reset state completely
-      setAllExchanges([]);
-      setLoadedBatches(0);
-      initializedRef.current = false;
-      loadingRef.current = false;
-      
-      // Force refresh first batch
-      await mutate();
-      
-      // The useEffect will handle reloading all batches when firstBatch updates
-    } catch (error) {
-      console.error('Error reloading batches:', error);
-    }
-  }, [mutate]);
-
-  // Poll for AI updates when background processing is active
-  useEffect(() => {
-    if (firstBatch?.backgroundProcessing) {
-      // Start polling every 15 seconds when AI is processing
-      pollIntervalRef.current = setInterval(async () => {
-        try {
-          // Check if AI processing is still active
-          const statusResponse = await fetch('/api/cache-status');
-          const status = await statusResponse.json();
+        const isAIProcessing = status.cex?.aiProcessing || false;
+        
+        // Check if AI processing just completed (was true, now false)
+        if (lastAIStatusRef.current && !isAIProcessing) {
+          console.log('🎉 CEX AI processing completed! Auto-refreshing data...');
           
-          if (!status.cex?.aiProcessing) {
-            // AI processing completed, reload ALL data
-            console.log('🔄 AI processing completed, reloading all batches...');
-            await reloadAllBatches();
-            
-            // Clear polling interval
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
+          // Force refresh with cache-busting
+          setRefreshKey(prev => prev + 1);
+          setBackgroundProcessing(false);
+          
+          // Clear polling interval
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
           }
-        } catch (error) {
-          console.error('Error checking AI status:', error);
         }
-      }, 15000); // Poll every 15 seconds for faster updates
-    }
+        
+        lastAIStatusRef.current = isAIProcessing;
+      } catch (error) {
+        console.error('Error checking CEX AI status:', error);
+      }
+    }, 8000); // Poll every 8 seconds for faster updates
 
-    // Cleanup polling on unmount or when processing stops
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
     };
-  }, [firstBatch?.backgroundProcessing, reloadAllBatches]);
+  }, [backgroundProcessing]);
 
-  // Reset when data changes (cache refresh)
-  useEffect(() => {
-    if (firstBatch?.cached === false && initializedRef.current) {
-      initializedRef.current = false;
-      loadingRef.current = false;
+  const refresh = useCallback(async () => {
+    try {
+      // Force refresh with cache-busting
+      setRefreshKey(prev => prev + 1);
+      await mutate();
+    } catch (error) {
+      console.error('Error refreshing CEX data:', error);
+      throw error;
     }
-  }, [firstBatch?.cached]);
+  }, [mutate]);
 
   return {
     exchanges: allExchanges,
     isLoading,
     isError: error,
-    backgroundLoading,
-    cachedAt: firstBatch?.cachedAt,
-    isCached: firstBatch?.cached,
-    totalBatches,
-    loadedBatches,
-    progress: totalBatches > 0 ? (loadedBatches / totalBatches) * 100 : 0,
-    refresh: reloadAllBatches, // Expose refresh function
+    backgroundLoading: backgroundProcessing,
+    cachedAt: data?.cachedAt,
+    isCached: data?.cached,
+    totalBatches: 1, // Simplified - all data loaded at once
+    loadedBatches: 1,
+    progress: 100, // Always 100% since we load all data
+    refresh,
   };
 }
 
 /**
- * Hook to fetch DEX fees with stable progressive loading
- * Loads first batch immediately, then loads additional batches in background
- * Polls for AI updates when background processing is active
+ * Enhanced DEX hook with automatic AI completion refresh
+ * Loads complete dataset from cache or API, then automatically refreshes when AI processing completes
  */
 export function useDEXFees() {
   const [allDEXes, setAllDEXes] = useState<any[]>([]);
-  const [backgroundLoading, setBackgroundLoading] = useState(false);
-  const [totalBatches, setTotalBatches] = useState(0);
-  const [loadedBatches, setLoadedBatches] = useState(0);
-  const loadingRef = useRef(false);
-  const initializedRef = useRef(false);
+  const [backgroundProcessing, setBackgroundProcessing] = useState(false);
+  const [refreshKey, setRefreshKey] = useState(0);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const lastAIStatusRef = useRef<boolean>(false);
 
-  // Load first batch with stable configuration
-  const { data: firstBatch, error, isLoading, mutate } = useSWR(
-    '/api/dex-fees?batch=1&batchSize=20', 
+  // Load complete dataset immediately (from cache or fresh API call)
+  // Use refreshKey to force cache-busting when AI completes
+  const { data, error, isLoading, mutate } = useSWR(
+    `/api/dex-fees?batch=all&_refresh=${refreshKey}`, // Cache-busting parameter
     fetcher, 
     swrConfig
   );
 
-  // Stable background loading function
-  const loadRemainingBatches = useCallback(async (totalBatches: number, initialData: any[]) => {
-    if (totalBatches <= 1 || loadingRef.current) return;
-    
-    loadingRef.current = true;
-    setBackgroundLoading(true);
-    
-    try {
-      // Pre-allocate array with correct size
-      const completeDEXes = new Array(totalBatches * 20);
-      
-      // Set initial batch data
-      initialData.forEach((dex, index) => {
-        completeDEXes[index] = dex;
-      });
-      
-      // Load remaining batches sequentially
-      for (let batch = 2; batch <= totalBatches; batch++) {
-        try {
-          const response = await fetch(`/api/dex-fees?batch=${batch}&batchSize=20`);
-          
-          if (!response.ok) {
-            console.warn(`DEX Batch ${batch} failed with status ${response.status}`);
-            continue;
-          }
-          
-          const data = await response.json();
-
-          if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-            const startIndex = (batch - 1) * 20;
-            
-            // Insert batch data at correct position
-            data.data.forEach((dex: any, index: number) => {
-              completeDEXes[startIndex + index] = dex;
-            });
-            
-            // Update state with current progress
-            setAllDEXes([...completeDEXes.filter(Boolean)]);
-            setLoadedBatches(batch);
-          }
-          
-          // Small delay between batches to prevent overwhelming
-          if (batch < totalBatches) {
-            await new Promise(resolve => setTimeout(resolve, 100));
-          }
-        } catch (batchError) {
-          console.error(`Error loading DEX batch ${batch}:`, batchError);
-        }
-      }
-    } catch (error) {
-      console.error('DEX background loading failed:', error);
-    } finally {
-      setBackgroundLoading(false);
-      loadingRef.current = false;
-    }
-  }, []);
-
-  // Initialize with first batch and start background loading
+  // Update state when data changes
   useEffect(() => {
-    if (firstBatch?.data) {
-      const dexes = Array.isArray(firstBatch.data) ? firstBatch.data : [];
-      const batches = firstBatch.totalBatches || 1;
-      
-      // Always update the first batch data (this handles both initial load and refresh)
-      setAllDEXes(dexes);
-      setTotalBatches(batches);
-      setLoadedBatches(1);
-      
-      // Only start background loading if not already initialized or if this is a refresh
-      if ((batches > 1 && dexes.length > 0) && (!initializedRef.current || !firstBatch.cached)) {
-        initializedRef.current = true;
+    if (data?.data && Array.isArray(data.data)) {
+      setAllDEXes(data.data);
+      setBackgroundProcessing(data.backgroundProcessing || false);
+    }
+  }, [data]);
+
+  // Enhanced polling for AI updates with automatic refresh
+  useEffect(() => {
+    // Clear any existing interval
+    if (pollIntervalRef.current) {
+      clearInterval(pollIntervalRef.current);
+      pollIntervalRef.current = null;
+    }
+
+    // Only start polling if background processing is active
+    if (!backgroundProcessing) {
+      lastAIStatusRef.current = false;
+      return;
+    }
+
+    console.log('🔄 Starting AI completion polling for DEX data...');
+    lastAIStatusRef.current = true;
+
+    pollIntervalRef.current = setInterval(async () => {
+      try {
+        const statusResponse = await fetch('/api/cache-status');
+        const status = await statusResponse.json();
         
-        // Use setTimeout to ensure state updates are processed
-        setTimeout(() => {
-          loadRemainingBatches(batches, dexes);
-        }, 200);
-      } else if (batches === 1) {
-        // Single batch case
-        initializedRef.current = true;
-      }
-    }
-  }, [firstBatch, loadRemainingBatches]);
-
-  // Reload all DEX batches with fresh data (complete reset)
-  const reloadAllDEXBatches = useCallback(async () => {
-    try {
-      console.log('🔄 Reloading all DEX batches with fresh AI-enhanced data...');
-      
-      // Reset state completely
-      setAllDEXes([]);
-      setLoadedBatches(0);
-      initializedRef.current = false;
-      loadingRef.current = false;
-      
-      // Force refresh first batch
-      await mutate();
-      
-      // The useEffect will handle reloading all batches when firstBatch updates
-    } catch (error) {
-      console.error('Error reloading DEX batches:', error);
-    }
-  }, [mutate]);
-
-  // Poll for AI updates when background processing is active
-  useEffect(() => {
-    if (firstBatch?.backgroundProcessing) {
-      // Start polling every 15 seconds when AI is processing
-      pollIntervalRef.current = setInterval(async () => {
-        try {
-          // Check if AI processing is still active
-          const statusResponse = await fetch('/api/cache-status');
-          const status = await statusResponse.json();
+        const isAIProcessing = status.dex?.aiProcessing || false;
+        
+        // Check if AI processing just completed (was true, now false)
+        if (lastAIStatusRef.current && !isAIProcessing) {
+          console.log('🎉 DEX AI processing completed! Auto-refreshing data...');
           
-          if (!status.dex?.aiProcessing) {
-            // AI processing completed, reload ALL data
-            console.log('🔄 DEX AI processing completed, reloading all batches...');
-            await reloadAllDEXBatches();
-            
-            // Clear polling interval
-            if (pollIntervalRef.current) {
-              clearInterval(pollIntervalRef.current);
-              pollIntervalRef.current = null;
-            }
+          // Force refresh with cache-busting
+          setRefreshKey(prev => prev + 1);
+          setBackgroundProcessing(false);
+          
+          // Clear polling interval
+          if (pollIntervalRef.current) {
+            clearInterval(pollIntervalRef.current);
+            pollIntervalRef.current = null;
           }
-        } catch (error) {
-          console.error('Error checking DEX AI status:', error);
         }
-      }, 15000); // Poll every 15 seconds for faster updates
-    }
+        
+        lastAIStatusRef.current = isAIProcessing;
+      } catch (error) {
+        console.error('Error checking DEX AI status:', error);
+      }
+    }, 8000); // Poll every 8 seconds for faster updates
 
-    // Cleanup polling on unmount or when processing stops
     return () => {
       if (pollIntervalRef.current) {
         clearInterval(pollIntervalRef.current);
         pollIntervalRef.current = null;
       }
     };
-  }, [firstBatch?.backgroundProcessing, reloadAllDEXBatches]);
+  }, [backgroundProcessing]);
 
-  // Reset when data changes (cache refresh)
-  useEffect(() => {
-    if (firstBatch?.cached === false && initializedRef.current) {
-      initializedRef.current = false;
-      loadingRef.current = false;
+  const refresh = useCallback(async () => {
+    try {
+      // Force refresh with cache-busting
+      setRefreshKey(prev => prev + 1);
+      await mutate();
+    } catch (error) {
+      console.error('Error refreshing DEX data:', error);
+      throw error;
     }
-  }, [firstBatch?.cached]);
+  }, [mutate]);
 
   return {
     dexes: allDEXes,
     isLoading,
     isError: error,
-    backgroundLoading,
-    cachedAt: firstBatch?.cachedAt,
-    isCached: firstBatch?.cached,
-    totalBatches,
-    loadedBatches,
-    progress: totalBatches > 0 ? (loadedBatches / totalBatches) * 100 : 0,
-    refresh: reloadAllDEXBatches, // Expose refresh function
+    backgroundLoading: backgroundProcessing,
+    cachedAt: data?.cachedAt,
+    isCached: data?.cached,
+    totalBatches: 1, // Simplified - all data loaded at once
+    loadedBatches: 1,
+    progress: 100, // Always 100% since we load all data
+    refresh,
   };
 }
-
-// /**
-//  * Hook to fetch exchange fees with custom configuration
-//  */
-// export function useExchangeFeesWithConfig(config?: {
-//   refreshInterval?: number;
-//   revalidateOnFocus?: boolean;
-// }) {
-//   const { data, error, isLoading, mutate } = useSWR('/api/cex-fees', fetcher, {
-//     revalidateOnFocus: config?.revalidateOnFocus ?? false,
-//     revalidateOnReconnect: false,
-//     refreshInterval: config?.refreshInterval ?? 0, // Disable by default
-//     dedupingInterval: CEX_CACHE_DURATION, // Use cache duration for deduping
-//     revalidateIfStale: false,
-//     errorRetryCount: 3,
-//     errorRetryInterval: 5000,
-//   });
-
-//   return {
-//     exchanges: data?.data as CEXFees[] | undefined,
-//     isLoading,
-//     isError: error,
-//     cachedAt: data?.cachedAt,
-//     isCached: data?.cached,
-//     refresh: mutate,
-//   };
-// }

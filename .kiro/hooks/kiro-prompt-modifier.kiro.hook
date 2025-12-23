@@ -9,5 +9,7 @@
   "then": {
     "type": "askAgent",
     "prompt": "Use real documentations for required changes.\n{userPrompt}\nuse context7"
-  }
+  },
+  "workspaceFolderName": "next_site-crypto_fees_helper_pages-kirovibe",
+  "shortName": "kiro-prompt-modifier"
 }
