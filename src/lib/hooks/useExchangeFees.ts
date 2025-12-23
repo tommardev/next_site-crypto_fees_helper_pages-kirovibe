@@ -16,15 +16,15 @@ const swrConfig = {
   revalidateOnFocus: false,
   revalidateOnReconnect: false,
   refreshInterval: 0,
-  dedupingInterval: 2000,
+  dedupingInterval: 1000, // Reduced for faster incremental updates
   revalidateIfStale: false,
   errorRetryCount: 2,
   errorRetryInterval: 3000,
 };
 
 /**
- * Enhanced CEX hook with automatic AI completion refresh
- * Loads complete dataset from cache or API, then automatically refreshes when AI processing completes
+ * Enhanced CEX hook with incremental AI batch refresh
+ * Refreshes UI after each AI batch completion, with final notification only
  */
 export function useExchangeFees() {
   const [allExchanges, setAllExchanges] = useState<CEXFees[]>([]);
@@ -32,6 +32,8 @@ export function useExchangeFees() {
   const [refreshKey, setRefreshKey] = useState(0);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastAIStatusRef = useRef<boolean>(false);
+  const lastCacheTimestampRef = useRef<number>(0);
+  const [showFinalNotification, setShowFinalNotification] = useState(false);
 
   // Load complete dataset immediately (from cache or fresh API call)
   // Use refreshKey to force cache-busting when AI completes
@@ -49,7 +51,7 @@ export function useExchangeFees() {
     }
   }, [data]);
 
-  // Enhanced polling for AI updates with automatic refresh
+  // Enhanced polling for incremental AI updates
   useEffect(() => {
     // Clear any existing interval
     if (pollIntervalRef.current) {
@@ -60,10 +62,11 @@ export function useExchangeFees() {
     // Only start polling if background processing is active
     if (!backgroundProcessing) {
       lastAIStatusRef.current = false;
+      setShowFinalNotification(false);
       return;
     }
 
-    console.log('🔄 Starting AI completion polling for CEX data...');
+    console.log('🔄 Starting incremental AI polling for CEX data...');
     lastAIStatusRef.current = true;
 
     pollIntervalRef.current = setInterval(async () => {
@@ -72,14 +75,25 @@ export function useExchangeFees() {
         const status = await statusResponse.json();
         
         const isAIProcessing = status.cex?.aiProcessing || false;
+        const currentCacheTimestamp = status.cex?.cacheTimestamp || 0;
         
-        // Check if AI processing just completed (was true, now false)
-        if (lastAIStatusRef.current && !isAIProcessing) {
-          console.log('🎉 CEX AI processing completed! Auto-refreshing data...');
+        // Check for incremental cache updates (new AI batch completed)
+        if (isAIProcessing && currentCacheTimestamp > lastCacheTimestampRef.current) {
+          console.log('📈 CEX AI batch completed, refreshing incrementally...');
           
-          // Force refresh with cache-busting
+          // Silent refresh for incremental updates (no notification)
+          setRefreshKey(prev => prev + 1);
+          lastCacheTimestampRef.current = currentCacheTimestamp;
+        }
+        
+        // Check if AI processing just completed entirely (was true, now false)
+        if (lastAIStatusRef.current && !isAIProcessing) {
+          console.log('🎉 CEX AI processing fully completed! Final refresh...');
+          
+          // Final refresh with notification flag
           setRefreshKey(prev => prev + 1);
           setBackgroundProcessing(false);
+          setShowFinalNotification(true);
           
           // Clear polling interval
           if (pollIntervalRef.current) {
@@ -92,7 +106,7 @@ export function useExchangeFees() {
       } catch (error) {
         console.error('Error checking CEX AI status:', error);
       }
-    }, 8000); // Poll every 8 seconds for faster updates
+    }, 5000); // Poll every 5 seconds for faster incremental updates
 
     return () => {
       if (pollIntervalRef.current) {
@@ -124,12 +138,13 @@ export function useExchangeFees() {
     loadedBatches: 1,
     progress: 100, // Always 100% since we load all data
     refresh,
+    showFinalNotification, // Flag for final completion notification
   };
 }
 
 /**
- * Enhanced DEX hook with automatic AI completion refresh
- * Loads complete dataset from cache or API, then automatically refreshes when AI processing completes
+ * Enhanced DEX hook with incremental AI batch refresh
+ * Refreshes UI after each AI batch completion, with final notification only
  */
 export function useDEXFees() {
   const [allDEXes, setAllDEXes] = useState<any[]>([]);
@@ -137,6 +152,8 @@ export function useDEXFees() {
   const [refreshKey, setRefreshKey] = useState(0);
   const pollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const lastAIStatusRef = useRef<boolean>(false);
+  const lastCacheTimestampRef = useRef<number>(0);
+  const [showFinalNotification, setShowFinalNotification] = useState(false);
 
   // Load complete dataset immediately (from cache or fresh API call)
   // Use refreshKey to force cache-busting when AI completes
@@ -154,7 +171,7 @@ export function useDEXFees() {
     }
   }, [data]);
 
-  // Enhanced polling for AI updates with automatic refresh
+  // Enhanced polling for incremental AI updates
   useEffect(() => {
     // Clear any existing interval
     if (pollIntervalRef.current) {
@@ -165,10 +182,11 @@ export function useDEXFees() {
     // Only start polling if background processing is active
     if (!backgroundProcessing) {
       lastAIStatusRef.current = false;
+      setShowFinalNotification(false);
       return;
     }
 
-    console.log('🔄 Starting AI completion polling for DEX data...');
+    console.log('🔄 Starting incremental AI polling for DEX data...');
     lastAIStatusRef.current = true;
 
     pollIntervalRef.current = setInterval(async () => {
@@ -177,14 +195,25 @@ export function useDEXFees() {
         const status = await statusResponse.json();
         
         const isAIProcessing = status.dex?.aiProcessing || false;
+        const currentCacheTimestamp = status.dex?.cacheTimestamp || 0;
         
-        // Check if AI processing just completed (was true, now false)
-        if (lastAIStatusRef.current && !isAIProcessing) {
-          console.log('🎉 DEX AI processing completed! Auto-refreshing data...');
+        // Check for incremental cache updates (new AI batch completed)
+        if (isAIProcessing && currentCacheTimestamp > lastCacheTimestampRef.current) {
+          console.log('📈 DEX AI batch completed, refreshing incrementally...');
           
-          // Force refresh with cache-busting
+          // Silent refresh for incremental updates (no notification)
+          setRefreshKey(prev => prev + 1);
+          lastCacheTimestampRef.current = currentCacheTimestamp;
+        }
+        
+        // Check if AI processing just completed entirely (was true, now false)
+        if (lastAIStatusRef.current && !isAIProcessing) {
+          console.log('🎉 DEX AI processing fully completed! Final refresh...');
+          
+          // Final refresh with notification flag
           setRefreshKey(prev => prev + 1);
           setBackgroundProcessing(false);
+          setShowFinalNotification(true);
           
           // Clear polling interval
           if (pollIntervalRef.current) {
@@ -197,7 +226,7 @@ export function useDEXFees() {
       } catch (error) {
         console.error('Error checking DEX AI status:', error);
       }
-    }, 8000); // Poll every 8 seconds for faster updates
+    }, 5000); // Poll every 5 seconds for faster incremental updates
 
     return () => {
       if (pollIntervalRef.current) {
@@ -229,5 +258,6 @@ export function useDEXFees() {
     loadedBatches: 1,
     progress: 100, // Always 100% since we load all data
     refresh,
+    showFinalNotification, // Flag for final completion notification
   };
 }

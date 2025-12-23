@@ -41,6 +41,7 @@ export default async function handler(
       exists: true,
       dataLength: cexCacheState.data?.length || 0,
       cachedAt: new Date(cexCacheState.timestamp).toISOString(),
+      cacheTimestamp: cexCacheState.timestamp, // Add raw timestamp for incremental detection
       ageMs: now - cexCacheState.timestamp,
       ageHours: Math.floor((now - cexCacheState.timestamp) / (1000 * 60 * 60)),
       isValid: (now - cexCacheState.timestamp) < CEX_CACHE_DURATION,
@@ -51,6 +52,7 @@ export default async function handler(
       exists: false,
       dataLength: 0,
       cachedAt: null,
+      cacheTimestamp: 0, // Add raw timestamp for incremental detection
       ageMs: 0,
       ageHours: 0,
       isValid: false,
@@ -63,6 +65,7 @@ export default async function handler(
       exists: true,
       dataLength: dexCacheState.data?.length || 0,
       cachedAt: new Date(dexCacheState.timestamp).toISOString(),
+      cacheTimestamp: dexCacheState.timestamp, // Add raw timestamp for incremental detection
       ageMs: now - dexCacheState.timestamp,
       ageHours: Math.floor((now - dexCacheState.timestamp) / (1000 * 60 * 60)),
       isValid: (now - dexCacheState.timestamp) < DEX_CACHE_DURATION,
@@ -73,6 +76,7 @@ export default async function handler(
       exists: false,
       dataLength: 0,
       cachedAt: null,
+      cacheTimestamp: 0, // Add raw timestamp for incremental detection
       ageMs: 0,
       ageHours: 0,
       isValid: false,

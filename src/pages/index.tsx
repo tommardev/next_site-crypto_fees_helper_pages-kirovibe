@@ -15,7 +15,7 @@ import { useState, useEffect, useRef } from 'react';
 export default function HomePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const toast = useToast();
-  const prevBackgroundLoadingRef = useRef<boolean>(false);
+  const prevShowFinalNotificationRef = useRef<boolean>(false);
   
   const { 
     exchanges, 
@@ -24,7 +24,8 @@ export default function HomePage() {
     backgroundLoading,
     cachedAt, 
     isCached,
-    refresh
+    refresh,
+    showFinalNotification
   } = useExchangeFees();
   
   const {
@@ -39,19 +40,19 @@ export default function HomePage() {
     reset,
   } = useCEXFilters(exchanges);
 
-  // Show toast notification when AI processing completes
+  // Show toast notification ONLY when final AI processing completes
   useEffect(() => {
-    if (prevBackgroundLoadingRef.current && !backgroundLoading) {
+    if (!prevShowFinalNotificationRef.current && showFinalNotification) {
       toast({
         title: 'Fee Data Updated!',
-        description: 'AI has successfully enhanced exchange fee data with real values.',
+        description: 'AI has successfully enhanced all exchange fee data with real values.',
         status: 'success',
         duration: 4000,
         isClosable: true,
       });
     }
-    prevBackgroundLoadingRef.current = backgroundLoading;
-  }, [backgroundLoading, toast]);
+    prevShowFinalNotificationRef.current = showFinalNotification;
+  }, [showFinalNotification, toast]);
 
   const handleRefresh = async () => {
     setIsRefreshing(true);
@@ -112,7 +113,7 @@ export default function HomePage() {
             )}
           </HStack>
           <Text fontSize="sm" color="gray.500" mt={2}>
-            💡 Tip: Lower fees mean more profit on your trades. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'Data loads immediately with AI-powered fee enhancement.'}
+            💡 Tip: Lower fees mean more profit on your trades. {backgroundLoading ? 'AI is enhancing fee data in the background - fee fields update as each batch completes.' : 'Data loads immediately with AI-powered fee enhancement.'}
           </Text>
           
           {/* Cache Monitor - Development Only */}
