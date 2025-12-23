@@ -16,10 +16,11 @@ export const COINGECKO_BASE_URL = 'https://api.coingecko.com/api/v3';
 export const COINGECKO_RATE_LIMIT = 50; // requests per minute
 export const COINGECKO_RATE_WINDOW = 60000; // 1 minute in ms
 
-// Pagination
-export const DEFAULT_PAGE_SIZE = 20;
+// Pagination - Updated for 10-item incremental loading
+export const DEFAULT_PAGE_SIZE = 10; // Show 10 items initially
+export const LOAD_MORE_SIZE = 10; // Load 10 more items per click
 export const MAX_EXCHANGES = 100;
-export const INITIAL_DISPLAY_COUNT = 20;
+export const INITIAL_DISPLAY_COUNT = 10; // Start with 10 items
 
 // UI Constants
 export const SKELETON_COUNT = 9;

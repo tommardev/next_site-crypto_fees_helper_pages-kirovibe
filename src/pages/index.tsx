@@ -9,11 +9,13 @@ import { useExchangeFees } from '@/lib/hooks/useExchangeFees';
 import { useCEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
 import { CacheMonitor } from '@/components/common/CacheMonitor';
-import { useState } from 'react';
+import { DevCacheManager } from '@/components/common/DevCacheManager';
+import { useState, useEffect, useRef } from 'react';
 
 export default function HomePage() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const toast = useToast();
+  const prevBackgroundLoadingRef = useRef<boolean>(false);
   
   const { 
     exchanges, 
@@ -22,9 +24,6 @@ export default function HomePage() {
     backgroundLoading,
     cachedAt, 
     isCached,
-    totalBatches,
-    loadedBatches,
-    progress,
     refresh
   } = useExchangeFees();
   
@@ -40,10 +39,23 @@ export default function HomePage() {
     reset,
   } = useCEXFilters(exchanges);
 
+  // Show toast notification when AI processing completes
+  useEffect(() => {
+    if (prevBackgroundLoadingRef.current && !backgroundLoading) {
+      toast({
+        title: 'Fee Data Updated!',
+        description: 'AI has successfully enhanced exchange fee data with real values.',
+        status: 'success',
+        duration: 4000,
+        isClosable: true,
+      });
+    }
+    prevBackgroundLoadingRef.current = backgroundLoading;
+  }, [backgroundLoading, toast]);
+
   const handleRefresh = async () => {
     setIsRefreshing(true);
     try {
-      // Use the hook's refresh function for better UX
       await refresh();
       
       toast({
@@ -69,6 +81,9 @@ export default function HomePage() {
   return (
     <Layout>
       <VStack spacing={6} align="stretch">
+        {/* Development Cache Manager */}
+        <DevCacheManager onCacheCleared={refresh} />
+
         {/* Header */}
         <Box>
           <Flex justify="space-between" align="start" mb={2}>
@@ -95,15 +110,9 @@ export default function HomePage() {
                 {isCached ? 'Cached' : 'Fresh'} • Updated {formatRelativeTime(cachedAt)}
               </Badge>
             )}
-            {/* Show batch info only in development */}
-            {process.env.NODE_ENV === 'development' && totalBatches > 0 && (
-              <Badge colorScheme="blue" fontSize="xs">
-                Batch {loadedBatches}/{totalBatches} ({Math.round(progress)}%)
-              </Badge>
-            )}
           </HStack>
           <Text fontSize="sm" color="gray.500" mt={2}>
-            💡 Tip: Lower fees mean more profit on your trades. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'Exchanges load progressively with AI-powered fee data.'}
+            💡 Tip: Lower fees mean more profit on your trades. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'Data loads immediately with AI-powered fee enhancement.'}
           </Text>
           
           {/* Cache Monitor - Development Only */}
@@ -136,14 +145,13 @@ export default function HomePage() {
           />
         )}
 
-        {/* Exchange Grid */}
+        {/* Exchange Grid with 10-item incremental loading */}
         <ExchangeGrid
           exchanges={displayedExchanges}
           isLoading={isLoading}
           backgroundLoading={backgroundLoading}
           hasMore={hasMore}
           onLoadMore={loadMore}
-          progress={progress}
         />
       </VStack>
     </Layout>

@@ -4,7 +4,7 @@ import { CEXFees, DEXFees, SortOption } from '@/lib/types/exchange';
 export function useCEXFilters(exchanges: CEXFees[] | undefined) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<SortOption>('trustScore');
-  const [showCount, setShowCount] = useState(20);
+  const [showCount, setShowCount] = useState(10); // Start with 10 items as requested
 
   const filteredAndSorted = useMemo(() => {
     if (!exchanges) return [];
@@ -43,7 +43,6 @@ export function useCEXFilters(exchanges: CEXFees[] | undefined) {
       case 'trustScore':
         filtered.sort((a, b) => b.trustScore - a.trustScore);
         break;
-      case 'trustScore':
       default:
         filtered.sort((a, b) => b.trustScore - a.trustScore);
         break;
@@ -61,11 +60,11 @@ export function useCEXFilters(exchanges: CEXFees[] | undefined) {
   const reset = () => {
     setSearchQuery('');
     setSortBy('trustScore');
-    setShowCount(20);
+    setShowCount(10); // Reset to 10 items
   };
 
   const loadMore = () => {
-    setShowCount(prev => Math.min(prev + 20, filteredAndSorted.length));
+    setShowCount(prev => Math.min(prev + 10, filteredAndSorted.length)); // Load 10 more items
   };
 
   return {
@@ -84,7 +83,7 @@ export function useCEXFilters(exchanges: CEXFees[] | undefined) {
 export function useDEXFilters(dexes: DEXFees[] | undefined) {
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState<'name' | 'swapFee' | 'volume' | 'liquidity'>('liquidity');
-  const [showCount, setShowCount] = useState(20);
+  const [showCount, setShowCount] = useState(10); // Start with 10 items as requested
 
   const filteredAndSorted = useMemo(() => {
     if (!dexes) return [];
@@ -130,11 +129,11 @@ export function useDEXFilters(dexes: DEXFees[] | undefined) {
   const reset = () => {
     setSearchQuery('');
     setSortBy('liquidity');
-    setShowCount(20);
+    setShowCount(10); // Reset to 10 items
   };
 
   const loadMore = () => {
-    setShowCount(prev => Math.min(prev + 20, filteredAndSorted.length));
+    setShowCount(prev => Math.min(prev + 10, filteredAndSorted.length)); // Load 10 more items
   };
 
   return {

@@ -1,0 +1,13 @@
+{
+  "enabled": true,
+  "name": "Prompt Context Modifier",
+  "description": "Automatically appends ' use_context7' to user prompts when they are submitted and sends the modified prompt to kiro",
+  "version": "1",
+  "when": {
+    "type": "promptSubmit"
+  },
+  "then": {
+    "type": "askAgent",
+    "prompt": "Take the user's prompt, append ' use_context7' to the end of it, then send this rewritten prompt to kiro."
+  }
+}

@@ -1,4 +1,4 @@
-import { SimpleGrid, Box, Text, Button, VStack, Spinner, HStack, Progress } from '@chakra-ui/react';
+import { SimpleGrid, Box, Text, Button, VStack, Spinner, HStack, Progress, Alert, AlertIcon } from '@chakra-ui/react';
 import { DEXCard } from './DEXCard';
 import { ExchangeGridSkeleton } from './ExchangeSkeleton';
 import { DEXFees } from '@/lib/types/exchange';
@@ -22,6 +22,7 @@ export function DEXGrid({
   onLoadMore,
   progress = 0,
 }: DEXGridProps) {
+  // Show skeleton loader only on initial load
   if (isLoading && dexes.length === 0) {
     return (
       <VStack spacing={6} align="stretch">
@@ -59,29 +60,23 @@ export function DEXGrid({
         ))}
       </SimpleGrid>
 
-      {/* Background loading indicator */}
+      {/* Background AI processing indicator */}
       {backgroundLoading && (
-        <Box py={4}>
-          <VStack spacing={3}>
-            <HStack justify="center" spacing={3}>
-              <Spinner size="sm" color="purple.500" />
-              <Text fontSize="sm" color="gray.600">
-                Loading more DEXes with AI fee data in background...
-              </Text>
-            </HStack>
-            <Progress 
-              value={progress} 
-              size="sm" 
-              colorScheme="purple" 
-              width="200px" 
-              borderRadius="md"
-            />
+        <Alert status="info" borderRadius="md">
+          <AlertIcon />
+          <VStack align="start" spacing={1} flex="1">
+            <Text fontSize="sm" fontWeight="medium">
+              AI is enhancing DEX fee data in the background...
+            </Text>
+            <Text fontSize="xs" color="gray.600">
+              Fee data will update automatically when processing completes (usually 2-5 minutes)
+            </Text>
           </VStack>
-        </Box>
+        </Alert>
       )}
 
-      {/* Load more button for filtered results */}
-      {hasMore && onLoadMore && !backgroundLoading && (
+      {/* Load more button - shows 10 more items */}
+      {hasMore && onLoadMore && !isLoading && (
         <Box textAlign="center" pt={4}>
           <Button
             onClick={onLoadMore}
@@ -89,13 +84,13 @@ export function DEXGrid({
             variant="outline"
             size="lg"
           >
-            Show More Results
+            Show 10 More DEXes
           </Button>
         </Box>
       )}
 
       {/* All loaded message */}
-      {!backgroundLoading && !hasMore && dexes.length > 10 && (
+      {!hasMore && dexes.length > 10 && (
         <Box textAlign="center" py={4}>
           <Text fontSize="sm" color="gray.500">
             Showing all {dexes.length} DEXes

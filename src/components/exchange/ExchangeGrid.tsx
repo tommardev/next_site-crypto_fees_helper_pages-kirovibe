@@ -1,4 +1,4 @@
-import { SimpleGrid, Box, Text, Button, VStack, Spinner, HStack, Progress } from '@chakra-ui/react';
+import { SimpleGrid, Box, Text, Button, VStack, Spinner, HStack, Progress, Alert, AlertIcon } from '@chakra-ui/react';
 import { ExchangeCard } from './ExchangeCard';
 import { ExchangeGridSkeleton } from './ExchangeSkeleton';
 import { CEXFees } from '@/lib/types/exchange';
@@ -22,6 +22,7 @@ export function ExchangeGrid({
   onLoadMore,
   progress = 0,
 }: ExchangeGridProps) {
+  // Show skeleton loader only on initial load
   if (isLoading && exchanges.length === 0) {
     return (
       <VStack spacing={6} align="stretch">
@@ -59,29 +60,23 @@ export function ExchangeGrid({
         ))}
       </SimpleGrid>
 
-      {/* Background loading indicator */}
+      {/* Background AI processing indicator */}
       {backgroundLoading && (
-        <Box py={4}>
-          <VStack spacing={3}>
-            <HStack justify="center" spacing={3}>
-              <Spinner size="sm" color="blue.500" />
-              <Text fontSize="sm" color="gray.600">
-                Loading more exchanges with AI fee data in background...
-              </Text>
-            </HStack>
-            <Progress 
-              value={progress} 
-              size="sm" 
-              colorScheme="blue" 
-              width="200px" 
-              borderRadius="md"
-            />
+        <Alert status="info" borderRadius="md">
+          <AlertIcon />
+          <VStack align="start" spacing={1} flex="1">
+            <Text fontSize="sm" fontWeight="medium">
+              AI is enhancing fee data in the background...
+            </Text>
+            <Text fontSize="xs" color="gray.600">
+              Fee data will update automatically when processing completes (usually 2-5 minutes)
+            </Text>
           </VStack>
-        </Box>
+        </Alert>
       )}
 
-      {/* Load more button for filtered results */}
-      {hasMore && onLoadMore && !backgroundLoading && (
+      {/* Load more button - shows 10 more items */}
+      {hasMore && onLoadMore && !isLoading && (
         <Box textAlign="center" pt={4}>
           <Button
             onClick={onLoadMore}
@@ -89,13 +84,13 @@ export function ExchangeGrid({
             variant="outline"
             size="lg"
           >
-            Show More Results
+            Show 10 More Exchanges
           </Button>
         </Box>
       )}
 
       {/* All loaded message */}
-      {!backgroundLoading && !hasMore && exchanges.length > 10 && (
+      {!hasMore && exchanges.length > 10 && (
         <Box textAlign="center" py={4}>
           <Text fontSize="sm" color="gray.500">
             Showing all {exchanges.length} exchanges

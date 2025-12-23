@@ -1,4 +1,4 @@
-import { Box, Heading, Text, VStack, Badge, HStack } from '@chakra-ui/react';
+import { Box, Heading, Text, VStack, Badge, HStack, useToast } from '@chakra-ui/react';
 import { Layout } from '@/components/layout/Layout';
 import { DEXGrid } from '@/components/exchange/DEXGrid';
 import { DEXFilters } from '@/components/exchange/DEXFilters';
@@ -8,8 +8,13 @@ import { useDEXFees } from '@/lib/hooks/useExchangeFees';
 import { useDEXFilters } from '@/lib/hooks/useFilters';
 import { formatRelativeTime } from '@/lib/utils/formatters';
 import { CacheMonitor } from '@/components/common/CacheMonitor';
+import { DevCacheManager } from '@/components/common/DevCacheManager';
+import { useEffect, useRef } from 'react';
 
 export default function DEXPage() {
+  const toast = useToast();
+  const prevBackgroundLoadingRef = useRef<boolean>(false);
+
   const { 
     dexes, 
     isLoading, 
@@ -17,9 +22,7 @@ export default function DEXPage() {
     backgroundLoading,
     cachedAt, 
     isCached,
-    totalBatches,
-    loadedBatches,
-    progress
+    refresh
   } = useDEXFees();
   
   const {
@@ -34,9 +37,26 @@ export default function DEXPage() {
     reset,
   } = useDEXFilters(dexes);
 
+  // Show toast notification when AI processing completes
+  useEffect(() => {
+    if (prevBackgroundLoadingRef.current && !backgroundLoading) {
+      toast({
+        title: 'DEX Fee Data Updated!',
+        description: 'AI has successfully enhanced DEX fee data with real values.',
+        status: 'success',
+        duration: 4000,
+        isClosable: true,
+      });
+    }
+    prevBackgroundLoadingRef.current = backgroundLoading;
+  }, [backgroundLoading, toast]);
+
   return (
     <Layout>
       <VStack spacing={6} align="stretch">
+        {/* Development Cache Manager */}
+        <DevCacheManager onCacheCleared={refresh} />
+
         {/* Header */}
         <Box>
           <Heading size="xl" mb={2}>
@@ -51,15 +71,9 @@ export default function DEXPage() {
                 {isCached ? 'Cached' : 'Fresh'} • Updated {formatRelativeTime(cachedAt)}
               </Badge>
             )}
-            {/* Show batch info only in development */}
-            {process.env.NODE_ENV === 'development' && totalBatches > 0 && (
-              <Badge colorScheme="purple" fontSize="xs">
-                Batch {loadedBatches}/{totalBatches} ({Math.round(progress)}%)
-              </Badge>
-            )}
           </HStack>
           <Text fontSize="sm" color="gray.500" mt={2}>
-            💡 Tip: DEX fees include swap fees + gas fees. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'DEXes load progressively with AI-powered fee data.'}
+            💡 Tip: DEX fees include swap fees + gas fees. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'Data loads immediately with AI-powered fee enhancement.'}
           </Text>
           
           {/* Cache Monitor - Development Only */}
@@ -92,14 +106,13 @@ export default function DEXPage() {
           />
         )}
 
-        {/* DEX Grid */}
+        {/* DEX Grid with 10-item incremental loading */}
         <DEXGrid
           dexes={displayedDEXes}
           isLoading={isLoading}
           backgroundLoading={backgroundLoading}
           hasMore={hasMore}
           onLoadMore={loadMore}
-          progress={progress}
         />
       </VStack>
     </Layout>
