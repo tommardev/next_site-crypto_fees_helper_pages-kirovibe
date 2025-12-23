@@ -13,7 +13,7 @@ import { useEffect, useRef } from 'react';
 
 export default function DEXPage() {
   const toast = useToast();
-  const prevBackgroundLoadingRef = useRef<boolean>(false);
+  const prevShowFinalNotificationRef = useRef<boolean>(false);
 
   const { 
     dexes, 
@@ -22,7 +22,8 @@ export default function DEXPage() {
     backgroundLoading,
     cachedAt, 
     isCached,
-    refresh
+    refresh,
+    showFinalNotification
   } = useDEXFees();
   
   const {
@@ -37,19 +38,19 @@ export default function DEXPage() {
     reset,
   } = useDEXFilters(dexes);
 
-  // Show toast notification when AI processing completes
+  // Show toast notification ONLY when final AI processing completes
   useEffect(() => {
-    if (prevBackgroundLoadingRef.current && !backgroundLoading) {
+    if (!prevShowFinalNotificationRef.current && showFinalNotification) {
       toast({
         title: 'DEX Fee Data Updated!',
-        description: 'AI has successfully enhanced DEX fee data with real values.',
+        description: 'AI has successfully enhanced all DEX fee data with real values.',
         status: 'success',
         duration: 4000,
         isClosable: true,
       });
     }
-    prevBackgroundLoadingRef.current = backgroundLoading;
-  }, [backgroundLoading, toast]);
+    prevShowFinalNotificationRef.current = showFinalNotification;
+  }, [showFinalNotification, toast]);
 
   return (
     <Layout>
@@ -73,7 +74,7 @@ export default function DEXPage() {
             )}
           </HStack>
           <Text fontSize="sm" color="gray.500" mt={2}>
-            💡 Tip: DEX fees include swap fees + gas fees. {backgroundLoading ? 'AI is enhancing fee data in the background.' : 'Data loads immediately with AI-powered fee enhancement.'}
+            💡 Tip: DEX fees include swap fees + gas fees. {backgroundLoading ? 'AI is enhancing fee data in the background - fee fields update as each batch completes.' : 'Data loads immediately with AI-powered fee enhancement.'}
           </Text>
           
           {/* Cache Monitor - Development Only */}

@@ -69,7 +69,7 @@ export function ExchangeGrid({
               AI is enhancing fee data in the background...
             </Text>
             <Text fontSize="xs" color="gray.600">
-              Fee data will update automatically when processing completes (usually 2-5 minutes)
+              Fee fields update automatically as each batch completes (every 15-30 seconds)
             </Text>
           </VStack>
         </Alert>
