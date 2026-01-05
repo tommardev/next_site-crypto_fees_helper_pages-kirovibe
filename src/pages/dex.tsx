@@ -39,6 +39,7 @@ export default function DEXPage() {
   } = useDEXFilters(dexes);
 
   // Show toast notification ONLY when final AI processing completes
+  // Reset notification flag after showing to prevent duplicates
   useEffect(() => {
     if (!prevShowFinalNotificationRef.current && showFinalNotification) {
       toast({
@@ -48,6 +49,10 @@ export default function DEXPage() {
         duration: 4000,
         isClosable: true,
       });
+      // Reset the flag after a delay to allow for next AI run
+      setTimeout(() => {
+        prevShowFinalNotificationRef.current = false;
+      }, 5000);
     }
     prevShowFinalNotificationRef.current = showFinalNotification;
   }, [showFinalNotification, toast]);

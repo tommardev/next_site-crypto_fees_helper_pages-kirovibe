@@ -25,18 +25,29 @@
   [headers.values]
     Cache-Control = "public, max-age=86400"
 
-# API route specific caching
+# API route specific caching - DISABLED for dynamic routes to prevent stale data
+# Dynamic routes (cache-status, cex-fees, dex-fees) should not be cached by CDN
+# as they contain real-time processing state and AI-enhanced data
+[[headers]]
+  for = "/api/cache-status*"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Pragma = "no-cache"
+    Expires = "0"
+
 [[headers]]
   for = "/api/cex-fees*"
   [headers.values]
-    # Let the API route set its own cache headers
-    Cache-Control = "public, s-maxage=259200, stale-while-revalidate=518400"
+    # Reduced caching for dynamic AI-enhanced data
+    # Allow API route to set its own cache headers via response
+    Cache-Control = "public, max-age=60, s-maxage=300, stale-while-revalidate=600"
 
 [[headers]]
   for = "/api/dex-fees*"
   [headers.values]
-    # Let the API route set its own cache headers
-    Cache-Control = "public, s-maxage=259200, stale-while-revalidate=518400"
+    # Reduced caching for dynamic AI-enhanced data
+    # Allow API route to set its own cache headers via response
+    Cache-Control = "public, max-age=60, s-maxage=300, stale-while-revalidate=600"
 
 # Next.js handles routing automatically in serverless mode
 

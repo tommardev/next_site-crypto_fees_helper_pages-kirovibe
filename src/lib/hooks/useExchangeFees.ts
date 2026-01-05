@@ -39,7 +39,10 @@ export function useExchangeFees() {
   // Use refreshKey to force cache-busting when AI completes
   const { data, error, isLoading, mutate } = useSWR(
     `/api/cex-fees?batch=all&_refresh=${refreshKey}`, // Cache-busting parameter
-    fetcher, 
+    (url: string) => {
+      // Add timestamp to fetch call to prevent Netlify CDN caching
+      return fetcher(`${url}&_t=${Date.now()}`);
+    },
     swrConfig
   );
 
@@ -62,16 +65,22 @@ export function useExchangeFees() {
     // Only start polling if background processing is active
     if (!backgroundProcessing) {
       lastAIStatusRef.current = false;
-      setShowFinalNotification(false);
+      // Don't reset showFinalNotification here - let it persist until next AI run
       return;
     }
 
     console.log('🔄 Starting incremental AI polling for CEX data...');
     lastAIStatusRef.current = true;
+    let notificationShown = false; // Track if notification was already shown
 
     pollIntervalRef.current = setInterval(async () => {
       try {
-        const statusResponse = await fetch('/api/cache-status');
+        // Add cache-busting timestamp to prevent Netlify CDN caching
+        const statusResponse = await fetch(`/api/cache-status?t=${Date.now()}`);
+        if (!statusResponse.ok) {
+          console.error('Cache status API error:', statusResponse.status);
+          return;
+        }
         const status = await statusResponse.json();
         
         const isAIProcessing = status.cex?.aiProcessing || false;
@@ -87,19 +96,23 @@ export function useExchangeFees() {
         }
         
         // Check if AI processing just completed entirely (was true, now false)
-        if (lastAIStatusRef.current && !isAIProcessing) {
+        // AND notification hasn't been shown yet
+        if (lastAIStatusRef.current && !isAIProcessing && !notificationShown) {
           console.log('🎉 CEX AI processing fully completed! Final refresh...');
           
           // Final refresh with notification flag
           setRefreshKey(prev => prev + 1);
           setBackgroundProcessing(false);
           setShowFinalNotification(true);
+          notificationShown = true; // Prevent duplicate notifications
           
-          // Clear polling interval
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-          }
+          // Clear polling interval after a short delay to ensure data is fetched
+          setTimeout(() => {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          }, 2000);
         }
         
         lastAIStatusRef.current = isAIProcessing;
@@ -159,7 +172,10 @@ export function useDEXFees() {
   // Use refreshKey to force cache-busting when AI completes
   const { data, error, isLoading, mutate } = useSWR(
     `/api/dex-fees?batch=all&_refresh=${refreshKey}`, // Cache-busting parameter
-    fetcher, 
+    (url: string) => {
+      // Add timestamp to fetch call to prevent Netlify CDN caching
+      return fetcher(`${url}&_t=${Date.now()}`);
+    },
     swrConfig
   );
 
@@ -182,16 +198,22 @@ export function useDEXFees() {
     // Only start polling if background processing is active
     if (!backgroundProcessing) {
       lastAIStatusRef.current = false;
-      setShowFinalNotification(false);
+      // Don't reset showFinalNotification here - let it persist until next AI run
       return;
     }
 
     console.log('🔄 Starting incremental AI polling for DEX data...');
     lastAIStatusRef.current = true;
+    let notificationShown = false; // Track if notification was already shown
 
     pollIntervalRef.current = setInterval(async () => {
       try {
-        const statusResponse = await fetch('/api/cache-status');
+        // Add cache-busting timestamp to prevent Netlify CDN caching
+        const statusResponse = await fetch(`/api/cache-status?t=${Date.now()}`);
+        if (!statusResponse.ok) {
+          console.error('Cache status API error:', statusResponse.status);
+          return;
+        }
         const status = await statusResponse.json();
         
         const isAIProcessing = status.dex?.aiProcessing || false;
@@ -207,19 +229,23 @@ export function useDEXFees() {
         }
         
         // Check if AI processing just completed entirely (was true, now false)
-        if (lastAIStatusRef.current && !isAIProcessing) {
+        // AND notification hasn't been shown yet
+        if (lastAIStatusRef.current && !isAIProcessing && !notificationShown) {
           console.log('🎉 DEX AI processing fully completed! Final refresh...');
           
           // Final refresh with notification flag
           setRefreshKey(prev => prev + 1);
           setBackgroundProcessing(false);
           setShowFinalNotification(true);
+          notificationShown = true; // Prevent duplicate notifications
           
-          // Clear polling interval
-          if (pollIntervalRef.current) {
-            clearInterval(pollIntervalRef.current);
-            pollIntervalRef.current = null;
-          }
+          // Clear polling interval after a short delay to ensure data is fetched
+          setTimeout(() => {
+            if (pollIntervalRef.current) {
+              clearInterval(pollIntervalRef.current);
+              pollIntervalRef.current = null;
+            }
+          }, 2000);
         }
         
         lastAIStatusRef.current = isAIProcessing;
