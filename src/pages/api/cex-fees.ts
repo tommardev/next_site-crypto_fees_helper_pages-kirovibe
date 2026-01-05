@@ -204,7 +204,7 @@ export default async function handler(
       });
       
       // Add ETag for better cache control
-      const etag = `"cex-${Date.now()}-${refreshKey || 0}"`;
+      const etag = `"cex-${Date.now()}-${_refresh || 0}"`;
       res.setHeader('ETag', etag);
 
       return res.status(200).json({
