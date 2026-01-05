@@ -52,7 +52,7 @@ export default async function handler(
   // Initialize global cache safely
   initializeGlobalCache();
 
-  const { batch = '1', batchSize = '20', _refresh } = req.query;
+  const { batch = '1', batchSize = '20', _refresh, _t } = req.query;
   const batchNum = batch === 'all' ? 1 : parseInt(batch as string, 10);
   const size = batch === 'all' ? 1000 : parseInt(batchSize as string, 10); // Load all data when batch=all
 
@@ -190,10 +190,15 @@ export default async function handler(
     }
 
     // Set optimized cache headers for fresh data
+    // Use shorter cache duration for production to ensure updates are visible
     const headers = generateCacheHeaders('dex', false);
     Object.entries(headers).forEach(([key, value]) => {
       res.setHeader(key, value);
     });
+    
+    // Add ETag for better cache control
+    const etag = `"dex-${Date.now()}-${_refresh || 0}"`;
+    res.setHeader('ETag', etag);
 
     return res.status(200).json({
       data: batchData,

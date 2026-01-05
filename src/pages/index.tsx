@@ -41,6 +41,7 @@ export default function HomePage() {
   } = useCEXFilters(exchanges);
 
   // Show toast notification ONLY when final AI processing completes
+  // Reset notification flag after showing to prevent duplicates
   useEffect(() => {
     if (!prevShowFinalNotificationRef.current && showFinalNotification) {
       toast({
@@ -50,6 +51,10 @@ export default function HomePage() {
         duration: 4000,
         isClosable: true,
       });
+      // Reset the flag after a delay to allow for next AI run
+      setTimeout(() => {
+        prevShowFinalNotificationRef.current = false;
+      }, 5000);
     }
     prevShowFinalNotificationRef.current = showFinalNotification;
   }, [showFinalNotification, toast]);

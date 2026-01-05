@@ -28,6 +28,11 @@ export default async function handler(
   }
 
   try {
+    // Set no-cache headers to prevent Netlify CDN caching
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+    
     // Initialize global cache safely
     initializeGlobalCache();
     
